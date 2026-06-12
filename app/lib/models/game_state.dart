@@ -51,6 +51,11 @@ class GameState extends ChangeNotifier {
   int? selectedCell;
   bool pencilMode = false;
 
+  // When a placement completes a house (row/column/box), these hold the cells
+  // to flash and a serial the UI watches to trigger the animation.
+  Set<int> flashCells = {};
+  int flashSerial = 0;
+
   /// True when [d] is the selected digit shown green on the keypad.
   bool isDigitActive(int d) => selectionMode == 1 && activeDigit == d;
 
@@ -122,6 +127,7 @@ class GameState extends ChangeNotifier {
     activeDigit = 1;
     selectedCell = null;
     pencilMode = false;
+    flashCells = {};
     _undo.clear();
     _redo.clear();
     _solved = false;
@@ -183,8 +189,9 @@ class GameState extends ChangeNotifier {
         if (cells[cell].value != 0) activeDigit = cells[cell].value;
       }
     } else {
-      // A digit is armed → place it in the tapped cell.
-      selectedCell = cell;
+      // A digit is armed → just fill the cell. Don't make it the "selected"
+      // cell, so the row/column/box stay unshaded — only place the number.
+      selectedCell = null;
       _commit(cell);
     }
     notifyListeners();
@@ -207,7 +214,42 @@ class GameState extends ChangeNotifier {
     if (_apply(cell)) {
       _undo.add(snapshot);
       _redo.clear();
+      _maybeFlashCompletedHouses(cell);
       _afterChange();
+    }
+  }
+
+  /// If placing into [cell] just completed its row, column, or box (all nine
+  /// digits present), mark that house's cells to flash.
+  void _maybeFlashCompletedHouses(int cell) {
+    if (cells[cell].value == 0) return; // erase/toggle-off can't complete
+    final r = SudokuEngine.rowOf(cell);
+    final c = SudokuEngine.colOf(cell);
+    final bRow = (r ~/ 3) * 3, bCol = (c ~/ 3) * 3;
+    final houses = <List<int>>[
+      [for (var i = 0; i < 9; i++) r * 9 + i], // row
+      [for (var i = 0; i < 9; i++) i * 9 + c], // column
+      [
+        for (var dr = 0; dr < 3; dr++)
+          for (var dc = 0; dc < 3; dc++) (bRow + dr) * 9 + (bCol + dc)
+      ], // box
+    ];
+    final toFlash = <int>{};
+    for (final house in houses) {
+      final seen = <int>{};
+      var full = true;
+      for (final x in house) {
+        if (cells[x].value == 0) {
+          full = false;
+          break;
+        }
+        seen.add(cells[x].value);
+      }
+      if (full && seen.length == 9) toFlash.addAll(house);
+    }
+    if (toFlash.isNotEmpty) {
+      flashCells = toFlash;
+      flashSerial++;
     }
   }
 

@@ -1,15 +1,63 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../engine/sudoku_engine.dart';
 import '../models/game_state.dart';
 
-/// The 9×9 playing field. Tapping a cell selects it.
-class SudokuGrid extends StatelessWidget {
+/// The 9×9 playing field. Tapping a cell selects it. When a row, column, or
+/// box is completed, its cells flash twice (like the original "Blink
+/// Completed").
+class SudokuGrid extends StatefulWidget {
   const SudokuGrid({super.key});
+
+  @override
+  State<SudokuGrid> createState() => _SudokuGridState();
+}
+
+class _SudokuGridState extends State<SudokuGrid>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _flash;
+  int _lastSerial = 0;
+  Set<int> _flashCells = {};
+
+  @override
+  void initState() {
+    super.initState();
+    // ~720ms total → two visible pulses (see _intensity).
+    _flash = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 720),
+    )..addListener(() {
+        if (mounted) setState(() {});
+      });
+  }
+
+  @override
+  void dispose() {
+    _flash.dispose();
+    super.dispose();
+  }
+
+  /// 0..1 flash strength for [index]: two sine humps so the group blinks twice.
+  double _intensity(int index) {
+    if (!_flash.isAnimating || !_flashCells.contains(index)) return 0;
+    final s = math.sin(_flash.value * 4 * math.pi); // two positive humps
+    return s > 0 ? s : 0;
+  }
 
   @override
   Widget build(BuildContext context) {
     final game = context.watch<GameState>();
+
+    // A new completed-group event → start the flash on the next frame.
+    if (game.flashSerial != _lastSerial) {
+      _lastSerial = game.flashSerial;
+      _flashCells = game.flashCells;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _flash.forward(from: 0);
+      });
+    }
+
     return Center(
       child: AspectRatio(
         aspectRatio: 1,
@@ -32,6 +80,7 @@ class SudokuGrid extends StatelessWidget {
                                 index: r * 9 + col,
                                 game: game,
                                 cellSize: size / 9,
+                                flash: _intensity(r * 9 + col),
                               ),
                             ),
                         ],
@@ -51,11 +100,13 @@ class _CellView extends StatelessWidget {
   final int index;
   final GameState game;
   final double cellSize;
+  final double flash;
 
   const _CellView({
     required this.index,
     required this.game,
     required this.cellSize,
+    this.flash = 0,
   });
 
   @override
@@ -79,7 +130,11 @@ class _CellView extends StatelessWidget {
       top: BorderSide(color: Colors.black54, width: r == 0 ? 0 : 0.0),
     );
 
-    final color = _background(game, index, selected);
+    var color = _background(game, index, selected);
+    if (flash > 0) {
+      // Blink the completed group amber, echoing the original.
+      color = Color.lerp(color, const Color(0xFFFFC107), flash) ?? color;
+    }
     final mistake = game.isMistake(index);
 
     return GestureDetector(

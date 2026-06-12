@@ -110,6 +110,33 @@ void main() {
     });
   });
 
+  group('armed-digit placement', () {
+    test('does not select the cell (so no row/box shading)', () {
+      final g = makeGame(InputMode.hybrid);
+      final cell = firstEmpty(g);
+      g.pressDigit(5);
+      g.pressCell(cell);
+      expect(g.selectedCell, isNull);
+      expect(g.cells[cell].value, 5);
+    });
+  });
+
+  group('group-completion flash', () {
+    test('flashSerial increments when a house is completed', () {
+      final g = makeGame(InputMode.hybrid);
+      final before = g.flashSerial;
+      // Fill row 0 with the correct solution digits, one armed digit at a time.
+      for (var c = 0; c < 9; c++) {
+        if (g.cells[c].given) continue;
+        g.pressDigit(g.solution[c]);
+        g.pressCell(c);
+      }
+      // Row 0 is now complete → at least one flash event fired.
+      expect(g.flashSerial, greaterThan(before));
+      expect(g.flashCells, isNotEmpty);
+    });
+  });
+
   group('highlightDigit', () {
     test('follows the armed digit', () {
       final g = makeGame(InputMode.hybrid);

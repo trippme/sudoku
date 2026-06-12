@@ -1,0 +1,283 @@
+body {
+	font-family:"Arial","sans-serif";
+	font-size:18px;
+	background-repeat:no-repeat;
+	background-position:top center;
+	-webkit-background-size:cover;
+	-o-background-size:cover;
+	-moz-background-size:cover;
+	background-size:cover;
+	margin:0;
+	border:0;
+	border-spacing:0;
+	padding:0;
+	}
+.menu {
+	font-size:20px;
+	line-height:26px;
+	font-weight:bold;
+	}
+.pane {
+	position:fixed;
+	left:-4000px;
+	top:0px;
+	width:2400px;
+	}
+
+.menuButton {
+	position:fixed;
+	left:-4000px;
+	top:80px;
+	background: url('images/MenuButton.png') no-repeat top left;
+	height:35px;
+	width:300px;
+	font-size:24px;
+	padding-top:6px;
+	padding-left:20px;
+	cursor:pointer;
+	}
+.menuButton.down {
+	background: url('images/MenuButton.png') no-repeat center left;
+	}
+.menuButton.gray {
+	color:#888;
+	background: url('images/MenuButton.png') no-repeat center left;
+	}
+.menuButton.focus {
+	background: url('images/MenuButton.png') no-repeat bottom left;
+	}
+.menuButton.half {
+	background: url('images/MenuButtonHalfWidth.png') no-repeat top left;
+	padding-left:15px;
+	width:145px;
+	}
+.menuButton.half.down {
+	background: url('images/MenuButtonHalfWidth.png') no-repeat center left;
+	}
+.menuButton.half.focus {
+	background: url('images/MenuButtonHalfWidth.png') no-repeat bottom left;
+	}
+select {
+	font-size:18px;
+	}
+
+.Grid {
+	height:480px;
+	width:480px;
+	text-align:center;
+	border:0;
+	border-spacing:0;
+	margin:0;
+	padding:0;
+	table-layout:fixed;
+	}
+.G {
+	height:52px;
+	width:52px;
+	border:0;
+	border-spacing:0;
+	margin:0;
+	padding:0;
+	cursor:pointer;
+	-webkit-touch-callout: none;
+	-webkit-user-select: none;
+	-khtml-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+	}
+.H1 {
+	height:1px;
+	width:480px;
+	background-color:#000;
+	border:0;
+	border-spacing:0;
+	margin:0;
+	padding:0;
+	}
+.V1 {
+	height:52px;
+	width:1px;
+	background-color:#000;
+	border:0;
+	border-spacing:0;
+	margin:0;
+	padding:0;
+	}
+.H3 {
+	height:3px;
+	width:480px;
+	background-color:#000;
+	border:0;
+	border-spacing:0;
+	margin:0;
+	padding:0;
+	}
+.V3 {
+	height:52px;
+	width:3px;
+	background-color:#000;
+	border:0;
+	border-spacing:0;
+	margin:0;
+	padding:0;
+	}
+
+.PlayButton {
+	height:50px;
+	text-align:center;
+	margin-left:13px;
+	padding-right:13px;
+	padding-top:3px;
+	font-size:36px;
+	cursor:pointer;
+	}
+
+.PlayButton span {
+	height:53px;
+	width:13px;
+	margin-top:-3px;
+	margin-left:-13px;
+	float:left;
+	}
+
+.PlayButton.smaller {
+	height:44px;
+	padding-top:9px;
+	font-size:26px;
+	}
+
+.PlayButton.smaller span {
+	margin-top:-9px;
+	}
+
+.PlayButton.white {
+	background: url(images/PlayButton.png) no-repeat top right;
+	}
+
+.PlayButton.white span {
+	background: url(images/PlayButton.png) no-repeat top left;
+	}
+
+.PlayButton.white.down {
+	background: url(images/PlayButtonAlt.png) no-repeat center right;
+	}
+
+.PlayButton.white.down span {
+	background: url(images/PlayButtonAlt.png) no-repeat center left;
+	}
+
+.PlayButton.yellow {
+	background: url(images/PlayButton.png) no-repeat center right;
+	}
+
+.PlayButton.yellow span {
+	background: url(images/PlayButton.png) no-repeat center left;
+	}
+
+.PlayButton.yellow.down {
+	background: url(images/PlayButtonAlt.png) no-repeat center right;
+	}
+
+.PlayButton.yellow.down span {
+	background: url(images/PlayButtonAlt.png) no-repeat center left;
+	}
+
+.PlayButton.green {
+	background: url(images/PlayButton.png) no-repeat bottom right;
+	}
+
+.PlayButton.green span {
+	background: url(images/PlayButton.png) no-repeat bottom left;
+	}
+
+.PlayButton.green.down {
+	background: url(images/PlayButtonAlt.png) no-repeat center right;
+	}
+
+.PlayButton.green.down span {
+	background: url(images/PlayButtonAlt.png) no-repeat center left;
+	}
+
+.PlayButton.gray {
+	color:#DDD;
+	background: url(images/PlayButtonAlt.png) no-repeat top right;
+	}
+
+.PlayButton.gray span {
+	background: url(images/PlayButtonAlt.png) no-repeat top left;
+	}
+
+.PlayButton.focus {
+	background: url(images/PlayButtonAlt.png) no-repeat bottom right;
+	}
+.PlayButton.focus span {
+	background: url(images/PlayButtonAlt.png) no-repeat bottom left;
+	}
+
+.header {
+	font-size:24px;
+	height:28px;
+	padding-left:5px;
+	color:#FFF;
+	}
+.DialogHead {
+	font-size:28px;
+	}
+.DialogBody {
+	font-size:18px;
+	}
+.totop {
+	font-size:12px;
+	text-align:center;
+	}
+.bultab {
+	margin:4px auto 4px auto;
+	width:492px;
+	}
+.titl {
+	font-size:28px;
+	color:#000099;
+	line-height:30px;
+	text-align:center;
+	}
+
+Form {
+	display:inline;
+	}
+table {
+	margin:0;
+	border:0;
+	border-spacing:0;
+	padding:0;
+	}
+tr {
+	margin:0;
+	border:0;
+	border-spacing:0;
+	padding:0;
+	}
+td {
+	margin:0;
+	border:0;
+	border-spacing:0;
+	padding:0;
+	}
+td.pad5 {
+	padding:5px;
+	}
+.section {
+	font-size:24px;
+	line-height:28px;
+	font-weight:bold;
+	}
+p {
+	margin:2px 0 8px 0;
+	padding:0;
+	}
+ul {
+	margin-top:2px;
+	margin-bottom:8px;
+	padding-top:0;
+	padding-bottom:0;
+	}

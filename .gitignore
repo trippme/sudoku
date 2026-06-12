@@ -1,0 +1,14 @@
+# Flutter / Dart build artifacts (the app/ subfolder also has its own .gitignore)
+app/build/
+app/.dart_tool/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+**/.dart_tool/
+**/build/
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db

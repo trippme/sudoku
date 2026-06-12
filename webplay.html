@@ -1,0 +1,662 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<title>Web Enjoy Sudoku</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="gtv-autozoom" content="off" />
+<link href="Sudoku.css" media="screen" rel="stylesheet" type="text/css">
+<script src="Sudoku.js" type="text/javascript"></script>
+<script src="json2.js" type="text/javascript"></script>
+<!--[if lte IE 6]>
+<script src="supersleight-min.js" type="text/javascript"></script>
+<![endif]-->
+</head>
+<body onload="DoLoaded()" onkeydown="return(KDown(event))" onkeypress="return(KPress(event))">
+
+
+
+<div id="AdPane" style="position:absolute; top:46px; left:36px; z-index:1;">
+<a href="http://www.enjoysudoku.com/"><img height=600 width=120 src='http://www.enjoysudoku.com/ads/tryapps120x600.gif' alt="Ad"></a>
+</div>
+
+
+
+<div id="LogoPane" style="position:absolute; top:36px; left:160px; z-index:1;">
+<img style="display:block;" height=95 width=480 src="images/ESlogo.png" alt="Enjoy Sudoku">
+<div style="font-size:14pt; width:110px; margin:0 auto; position:relative; top:-20px; left:10px;">for the Web</div>
+</div>
+
+
+
+<div id="sound_element" class="pane"></div>
+
+
+
+<div class="menuButton" id="M0" onclick="MenuButton(0)" enjoysudoku:action="MenuButton(0)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"></div>
+<div class="menuButton" id="M1" onclick="MenuButton(1)" enjoysudoku:action="MenuButton(1)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"></div>
+<div class="menuButton" id="M2" onclick="MenuButton(2)" enjoysudoku:action="MenuButton(2)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"></div>
+<div class="menuButton" id="M3" onclick="MenuButton(3)" enjoysudoku:action="MenuButton(3)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"></div>
+<div class="menuButton" id="M4" onclick="MenuButton(4)" enjoysudoku:action="MenuButton(4)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"></div>
+<div class="menuButton" id="M5" onclick="MenuButton(5)" enjoysudoku:action="MenuButton(5)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"></div>
+<div class="menuButton" id="M6" onclick="MenuButton(6)" enjoysudoku:action="MenuButton(6)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"></div>
+<div class="menuButton" id="M7" onclick="MenuButton(7)" enjoysudoku:action="MenuButton(7)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"></div>
+<div class="menuButton" id="M8" onclick="MenuButton(8)" enjoysudoku:action="MenuButton(8)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"></div>
+<div class="menuButton" id="M9" onclick="MenuButton(9)" enjoysudoku:action="MenuButton(9)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"></div>
+<div class="menuButton" id="M10" onclick="MenuButton(10)" enjoysudoku:action="MenuButton(10)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"></div>
+<div class="menuButton" id="M11" onclick="MenuButton(11)" enjoysudoku:action="MenuButton(11)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"></div>
+<div class="menuButton" id="M12" onclick="MenuButton(12)" enjoysudoku:action="MenuButton(12)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"></div>
+<div class="menuButton" id="M13" onclick="MenuButton(13)" enjoysudoku:action="MenuButton(13)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"></div>
+<div class="menuButton" id="M14" onclick="MenuButton(14)" enjoysudoku:action="MenuButton(14)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"></div>
+<div class="menuButton" id="M15" onclick="MenuButton(15)" enjoysudoku:action="MenuButton(15)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"></div>
+<div class="menuButton" id="M16" onclick="MenuButton(16)" enjoysudoku:action="MenuButton(16)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"></div>
+<div id="M17" style="position:fixed; left:-4000px; margin:10px;">
+<form method="get" action="javascript:return(false)">
+<table style="width:320px;"><tr><td align="left">
+<select id="M17Item">
+<option>Option 1</option>
+</select></td></tr></table></form></div>
+
+
+
+<!-- Horizontal 480x480 Play Pane (overall h:488 w: -->
+<div id="PlayPane" class="pane">
+<table style="padding:0;">
+<tr><td>
+<div style="
+	background-color:#000; border:4px solid black; 
+	border-top-right-radius:20px; --webkit-border-top-right-radius:20px; -moz-border-radius-topright:20px; 
+	border-bottom-right-radius:20px; --webkit-border-bottom-right-radius:20px; -moz-border-radius-bottomright:20px; 
+	padding:0; height:480px;">
+<table style="height:480px; width:684px; border:0; border-spacing:0; padding:0; margin:0;">
+<tr style="height:480px; border:0; border-spacing:0; margin:0; padding:0;">
+<td style="width:480px; border:0; border-spacing:0; margin:0; padding:0;">
+
+<!-- The playing field -->
+<table class=Grid>
+
+<tr>
+<td class=G onclick="BP(0);" id="G0"></td>
+<td class=V1></td>
+<td class=G onclick="BP(1);" id="G1"></td>
+<td class=V1></td>
+<td class=G onclick="BP(2);" id="G2"></td>
+<td class=V3></td>
+<td class=G onclick="BP(3);" id="G3"></td>
+<td class=V1></td>
+<td class=G onclick="BP(4);" id="G4"></td>
+<td class=V1></td>
+<td class=G onclick="BP(5);" id="G5"></td>
+<td class=V3></td>
+<td class=G onclick="BP(6);" id="G6"></td>
+<td class=V1></td>
+<td class=G onclick="BP(7);" id="G7"></td>
+<td class=V1></td>
+<td class=G onclick="BP(8);" id="G8"></td>
+</tr>
+
+<tr><td colspan=17 class=H1></td></tr>
+
+<tr>
+<td class=G onclick="BP(9);" id="G9"></td>
+<td class=V1></td>
+<td class=G onclick="BP(10);" id="G10"></td>
+<td class=V1></td>
+<td class=G onclick="BP(11);" id="G11"></td>
+<td class=V3></td>
+<td class=G onclick="BP(12);" id="G12"></td>
+<td class=V1></td>
+<td class=G onclick="BP(13);" id="G13"></td>
+<td class=V1></td>
+<td class=G onclick="BP(14);" id="G14"></td>
+<td class=V3></td>
+<td class=G onclick="BP(15);" id="G15"></td>
+<td class=V1></td>
+<td class=G onclick="BP(16);" id="G16"></td>
+<td class=V1></td>
+<td class=G onclick="BP(17);" id="G17"></td>
+</tr>
+
+<tr><td colspan=17 class=H1></td></tr>
+
+<tr>
+<td class=G onclick="BP(18);" id="G18"></td>
+<td class=V1></td>
+<td class=G onclick="BP(19);" id="G19"></td>
+<td class=V1></td>
+<td class=G onclick="BP(20);" id="G20"></td>
+<td class=V3></td>
+<td class=G onclick="BP(21);" id="G21"></td>
+<td class=V1></td>
+<td class=G onclick="BP(22);" id="G22"></td>
+<td class=V1></td>
+<td class=G onclick="BP(23);" id="G23"></td>
+<td class=V3></td>
+<td class=G onclick="BP(24);" id="G24"></td>
+<td class=V1></td>
+<td class=G onclick="BP(25);" id="G25"></td>
+<td class=V1></td>
+<td class=G onclick="BP(26);" id="G26"></td>
+</tr>
+
+<tr><td colspan=17 class=H3></td></tr>
+
+<tr>
+<td class=G onclick="BP(27);" id="G27"></td>
+<td class=V1></td>
+<td class=G onclick="BP(28);" id="G28"></td>
+<td class=V1></td>
+<td class=G onclick="BP(29);" id="G29"></td>
+<td class=V3></td>
+<td class=G onclick="BP(30);" id="G30"></td>
+<td class=V1></td>
+<td class=G onclick="BP(31);" id="G31"></td>
+<td class=V1></td>
+<td class=G onclick="BP(32);" id="G32"></td>
+<td class=V3></td>
+<td class=G onclick="BP(33);" id="G33"></td>
+<td class=V1></td>
+<td class=G onclick="BP(34);" id="G34"></td>
+<td class=V1></td>
+<td class=G onclick="BP(35);" id="G35"></td>
+</tr>
+
+<tr><td colspan=17 class=H1></td></tr>
+
+<tr>
+<td class=G onclick="BP(36);" id="G36"></td>
+<td class=V1></td>
+<td class=G onclick="BP(37);" id="G37"></td>
+<td class=V1></td>
+<td class=G onclick="BP(38);" id="G38"></td>
+<td class=V3></td>
+<td class=G onclick="BP(39);" id="G39"></td>
+<td class=V1></td>
+<td class=G onclick="BP(40);" id="G40"></td>
+<td class=V1></td>
+<td class=G onclick="BP(41);" id="G41"></td>
+<td class=V3></td>
+<td class=G onclick="BP(42);" id="G42"></td>
+<td class=V1></td>
+<td class=G onclick="BP(43);" id="G43"></td>
+<td class=V1></td>
+<td class=G onclick="BP(44);" id="G44"></td>
+</tr>
+
+<tr><td colspan=17 class=H1></td></tr>
+
+<tr>
+<td class=G onclick="BP(45);" id="G45"></td>
+<td class=V1></td>
+<td class=G onclick="BP(46);" id="G46"></td>
+<td class=V1></td>
+<td class=G onclick="BP(47);" id="G47"></td>
+<td class=V3></td>
+<td class=G onclick="BP(48);" id="G48"></td>
+<td class=V1></td>
+<td class=G onclick="BP(49);" id="G49"></td>
+<td class=V1></td>
+<td class=G onclick="BP(50);" id="G50"></td>
+<td class=V3></td>
+<td class=G onclick="BP(51);" id="G51"></td>
+<td class=V1></td>
+<td class=G onclick="BP(52);" id="G52"></td>
+<td class=V1></td>
+<td class=G onclick="BP(53);" id="G53"></td>
+</tr>
+
+<tr><td colspan=17 class=H3></td></tr>
+
+<tr>
+<td class=G onclick="BP(54);" id="G54"></td>
+<td class=V1></td>
+<td class=G onclick="BP(55);" id="G55"></td>
+<td class=V1></td>
+<td class=G onclick="BP(56);" id="G56"></td>
+<td class=V3></td>
+<td class=G onclick="BP(57);" id="G57"></td>
+<td class=V1></td>
+<td class=G onclick="BP(58);" id="G58"></td>
+<td class=V1></td>
+<td class=G onclick="BP(59);" id="G59"></td>
+<td class=V3></td>
+<td class=G onclick="BP(60);" id="G60"></td>
+<td class=V1></td>
+<td class=G onclick="BP(61);" id="G61"></td>
+<td class=V1></td>
+<td class=G onclick="BP(62);" id="G62"></td>
+</tr>
+
+<tr><td colspan=17 class=H1></td></tr>
+
+<tr>
+<td class=G onclick="BP(63);" id="G63"></td>
+<td class=V1></td>
+<td class=G onclick="BP(64);" id="G64"></td>
+<td class=V1></td>
+<td class=G onclick="BP(65);" id="G65"></td>
+<td class=V3></td>
+<td class=G onclick="BP(66);" id="G66"></td>
+<td class=V1></td>
+<td class=G onclick="BP(67);" id="G67"></td>
+<td class=V1></td>
+<td class=G onclick="BP(68);" id="G68"></td>
+<td class=V3></td>
+<td class=G onclick="BP(69);" id="G69"></td>
+<td class=V1></td>
+<td class=G onclick="BP(70);" id="G70"></td>
+<td class=V1></td>
+<td class=G onclick="BP(71);" id="G71"></td>
+</tr>
+
+<tr><td colspan=17 class=H1></td></tr>
+
+<tr>
+<td class=G onclick="BP(72);" id="G72"></td>
+<td class=V1></td>
+<td class=G onclick="BP(73);" id="G73"></td>
+<td class=V1></td>
+<td class=G onclick="BP(74);" id="G74"></td>
+<td class=V3></td>
+<td class=G onclick="BP(75);" id="G75"></td>
+<td class=V1></td>
+<td class=G onclick="BP(76);" id="G76"></td>
+<td class=V1></td>
+<td class=G onclick="BP(77);" id="G77"></td>
+<td class=V3></td>
+<td class=G onclick="BP(78);" id="G78"></td>
+<td class=V1></td>
+<td class=G onclick="BP(79);" id="G79"></td>
+<td class=V1></td>
+<td class=G onclick="BP(80);" id="G80"></td>
+</tr>
+
+</table>
+</td><!-- End of the playing field -->
+
+<!-- Vertical black seperator -->
+<td style="border:0; border-spacing:0; margin:0; padding:0; width:3px; background-color:#000;"></td>
+
+<!-- Right hand control bar (with digits) -->
+<td id="DigitPane" style="border:0; border-spacing:0; margin:0; padding:0;">
+<table style="height:480px; width:201px;">
+<tr><td colspan=6 id="difficulty" class="header"></td></tr>
+<tr><td colspan=6 style="margin:0; border:0; padding:0; height:3px; background-color:#000;"></td></tr>
+<tr style="height:29px; background-color:#EEE;"><td colspan=6></td></tr>
+<tr style="height:55px; margin:0 3px; background-color:#EEE;">
+<td colspan=2 align=center style="width:63px; padding-left:2px;" onclick="SetDigit(1)">
+<div  id="D0" class="PlayButton white" enjoysudoku:action="SetDigit(1)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>1</div></td>
+<td colspan=2 align=center style="width:63px;" onclick="SetDigit(2)">
+<div  id="D1" class="PlayButton white" enjoysudoku:action="SetDigit(2)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>2</div></td>
+<td colspan=2 align=center style="width:63px; padding-right:2px;" onclick="SetDigit(3)">
+<div  id="D2" class="PlayButton white" enjoysudoku:action="SetDigit(3)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>3</div></td>
+</tr>
+<tr style="height:55px; margin:0 3px; background-color:#EEE;">
+<td colspan=2 align=center style="width:63px; padding-left:2px;" onclick="SetDigit(4)">
+<div  id="D3" class="PlayButton white" enjoysudoku:action="SetDigit(4)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>4</div></td>
+<td colspan=2 align=center style="width:63px;" onclick="SetDigit(5)">
+<div  id="D4" class="PlayButton white" enjoysudoku:action="SetDigit(5)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>5</div></td>
+<td colspan=2 align=center style="width:63px; padding-right:2px;" onclick="SetDigit(6)">
+<div  id="D5" class="PlayButton white" enjoysudoku:action="SetDigit(6)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>6</div></td>
+</tr>
+<tr style="height:55px; padding:0 3px; background-color:#EEE;">
+<td colspan=2 align=center style="width:63px; padding-left:2px;" onclick="SetDigit(7)">
+<div  id="D6" class="PlayButton white" enjoysudoku:action="SetDigit(7)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)">
+<span></span>
+7</div></td>
+<td colspan=2 align=center style="width:63px;" onclick="SetDigit(8)">
+<div  id="D7" class="PlayButton white" enjoysudoku:action="SetDigit(8)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>8</div></td>
+<td colspan=2 align=center style="width:63px; padding-right:2px;" onclick="SetDigit(9)">
+<div  id="D8" class="PlayButton white" enjoysudoku:action="SetDigit(9)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>9</div></td>
+</tr>
+<tr style="height:28px; background-color:#EEE;"><td colspan=6></td></tr>
+<tr style="height:55px; margin:0 3px; background-color:#EEE;">
+<td colspan=3 align=center onclick="SetPencil()" style="width:95px; padding:0 1px 0 2px;"><div id="D10" class="PlayButton smaller white" enjoysudoku:action="SetPencil()" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>Pencil</div></td>
+<td colspan=3 align=center onclick="DoUndo()" style="width:95px; padding:0 2px 0 1px;"><div id="Undo" class="PlayButton smaller white" enjoysudoku:action="DoUndo()" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>Undo</div></td>
+</tr>
+<tr style="height:55px; padding:0 3px; background-color:#EEE;">
+<td colspan=3 align=center onclick="SetDigit(10)" id="EraseCol" style="width:95px; padding:0 1px 0 2px;"><div id="D9" class="PlayButton smaller white" enjoysudoku:action="SetDigit(10)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>Erase</div></td>
+<td colspan=3 align=center onclick="DoRedo()" id="RedoCol" style="width:95px; padding:0 2px 0 1px;"><div id="Redo" class="PlayButton smaller white" enjoysudoku:action="DoRedo()" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>Redo</div></td>
+</tr>
+<tr style="height:55px; margin:0 3px; background-color:#EEE;">
+<td colspan=3 align=center onclick="DoHint()" style="width:95px; padding:0 1px 0 2px;"><div id="Hint" class="PlayButton smaller white" enjoysudoku:action="DoHint()" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>Hint</div></td>
+<td colspan=3 align=center onclick="DoGame()" style="width:95px; padding:0 2px 0 1px;"><div id="Game" class="PlayButton smaller white" enjoysudoku:action="DoGame()" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>Game</div></td>
+</tr>
+<tr style="height:28px; background-color:#EEE;"><td colspan=6></td></tr>
+<tr><td colspan=6 style="height:3px; background-color:#000;"></td></tr>
+<tr><td colspan=6 id="time" class="header" style="padding-bottom:1px;">Time:0:00</td></tr>
+</table>
+</td><!-- End of Right hand control bar (Digits) -->
+</tr></table>
+</div><!-- End of rounded corner container -->
+</td></tr>
+</table>
+</div>
+
+
+
+<div id="HintsPane" class="pane" style="height:412px; width:201px;">
+<table style="height:412px; width:201px;">
+<tr style="background-color:#EEE;">
+<td id="T3" style="padding:4px 5px; height:247px; width:201px; font-size:16px; 
+	line-height:21px; vertical-align:text-top;">
+<div id="Hints" style="word-wrap:break-word; width:191px;"></div>
+</td></tr>
+<tr style="background-color:#EEE; height:55px;"><td align=center onclick="DoBack()">
+<div id="Back" enjoysudoku:action="DoBack()" class="PlayButton smaller white" enjoysudoku:action="DoBack()" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>Back</div>
+</td></tr>
+<tr style="background-color:#EEE; height:55px;"><td align=center onclick="DoMore()">
+<div id="More" class="PlayButton smaller white" enjoysudoku:action="DoMore()" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>More</div>
+</td></tr>
+<tr style="background-color:#EEE; height:55px;"><td align=center onclick="DoDone()">
+<div id="Done" class="PlayButton smaller white" enjoysudoku:action="DoDone()" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>Done</div>
+</td></tr>
+</table>
+</div>
+
+
+
+<div id="PrivacyPane" class="pane" style="height:4000px;
+	background-color:#000000;
+	-ms-filter:'progid:DXImageTransform.Microsoft.Alpha(Opacity=40)';
+	filter:alpha(opacity=4); opacity:0.4;" onclick="DialogPress(-1)">
+</div>
+
+
+
+<div id="ObscurePane" class="pane" style="height:480px; width:480px; 
+	-ms-filter:'progid:DXImageTransform.Microsoft.Alpha(Opacity=87)'; 
+	filter:alpha(opacity=87); opacity:0.87; background-color:#000000;
+	font-size:32px; color:#FFF;" 
+	onclick="DialogPress(-1)">
+&nbsp;<br>
+<div style="margin:0 auto 0 auto; width:120px;">Paused</div>
+</div>
+
+
+
+<div id="DialogPane" style="position:fixed; top:0px; left:-4000px; width:320px; 
+	border:2px solid black; padding:10px; background-color:#EEEEEE; 
+	-webkit-border-radius:10px; -moz-border-radius:10px; border-radius:10px;">
+<table style="width:100%;">
+<tr><td id="A7" align=center class="DialogHead">Title</td></tr>
+<tr style="height:4px;"><td></td></tr>
+<tr><td id="A8" class="DialogBody">Body</td></tr>
+<tr id="DR6" style="height:55px;"><td onclick="DialogPress(6)"><div id="A6" class="PlayButton smaller white" enjoysudoku:action="DialogPress(6)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>6</div></td></tr>
+<tr id="DR5" style="height:55px;"><td onclick="DialogPress(5)"><div id="A5" class="PlayButton smaller white" enjoysudoku:action="DialogPress(5)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>5</div></td></tr>
+<tr id="DR4" style="height:55px;"><td onclick="DialogPress(4)"><div id="A4" class="PlayButton smaller white" enjoysudoku:action="DialogPress(4)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)">"<span></span>4</div></td></tr>
+<tr id="DR3" style="height:55px;"><td onclick="DialogPress(3)"><div id="A3" class="PlayButton smaller white" enjoysudoku:action="DialogPress(3)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>3</div></td></tr>
+<tr id="DR2" style="height:55px;"><td onclick="DialogPress(2)"><div id="A2" class="PlayButton smaller white" enjoysudoku:action="DialogPress(2)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>2</div></td></tr>
+<tr id="DR1" style="height:55px;"><td onclick="DialogPress(1)"><div id="A1" class="PlayButton smaller white" enjoysudoku:action="DialogPress(1)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>1</div></td></tr>
+<tr id="DR0" style="height:55px;"><td onclick="DialogPress(0)"><div id="A0" class="PlayButton smaller white" enjoysudoku:action="DialogPress(0)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>0</div></td></tr>
+</table>
+</div>
+
+
+
+<form method="GET" name="Set" action="javascript:DoSettings();">
+<div id="SettingsPane" class="pane" style="width:100%">
+<div style="
+	background-color:#FFFFFF; border:2px solid black; 
+	border-radius:20px; -webkit-border-radius:20px; -moz-border-radius:20px; 
+	padding:10px 15px; width:300px; margin-bottom:10px;">
+Options:<br>
+&nbsp; &nbsp; &nbsp;<input type="checkbox" name="play_sounds"> Play Sounds<br>
+Display:<br>
+&nbsp; &nbsp; &nbsp;Show Time: <select name="show_clock">
+<option>Never </option>
+<option>At End </option>
+<option>Always </option>
+</select><br>
+&nbsp; &nbsp; &nbsp;<input type="checkbox" name="show_highlight"> Highlight<br>
+&nbsp; &nbsp; &nbsp;<input type="checkbox" name="flash_complete"> Blink Completed<br>
+Appearance:<br>
+&nbsp; &nbsp; &nbsp;Digit Font: <select name="digit_font">
+<option>Regular </option>
+<option>Bold </option>
+<option>Kangi </option>
+<option>Hanzi </option>
+</select><br>
+&nbsp; &nbsp; &nbsp;Pencil Marks: <select name="pencil_marks">
+<option>Variable Size </option>
+<option>Always Small </option>
+<option>Square </option>
+<option>Round </option>
+</select><br>
+&nbsp; &nbsp; &nbsp;Skin: <select name="color_scheme">
+<option>Salt </option>
+<option>Fog </option>
+<option>Ocean </option>
+<option>Halloween </option>
+<option>Fire </option>
+<option>Sand </option>
+</select><br>
+Assistance:<br>
+&nbsp; &nbsp; &nbsp;Mark Mistakes: <select name="show_mistakes">
+<option>Off </option>
+<option>Illogical </option>
+<option>On (hint) </option>
+</select><br>
+&nbsp; &nbsp; &nbsp;Auto Pencil Marks: <select name="blended_pencil">
+<option>Off </option>
+<option>Erase </option>
+<option>On </option>
+</select><br>
+Advanced:<br>
+&nbsp; &nbsp; &nbsp;Input: <select name="input_method">
+<option>Hybrid </option>
+<option>Digit Then Cell </option>
+<option>Cell Then Digit </option>
+</select><br>
+&nbsp; &nbsp; &nbsp;<input type="checkbox" name="keep_saves"> Keep Saved Games<br>
+</div>
+<div class="PlayButton smaller white" enjoysudoku:action="DoSettings()" style="width:200px;" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)" onclick="DoSettings()"><span></span>Return To Menu</div>
+</div>
+</form>
+
+
+
+<div id="StatsPane" class="pane" style="height:488px; width:380px;">
+<div style="height:430px; width:380px; overflow:auto; margin-bottom:5px;">
+	<div id="statistics" style="
+		background-color:#FFFFFF; border:2px solid black; 
+		border-radius:20px; -webkit-border-radius:20px; -moz-border-radius:20px; 
+		padding:10px 15px; margin:0 auto; width:320px;">
+		</div>
+	</div>
+<div class="PlayButton smaller white" id="StatsDone" enjoysudoku:action="DoEndHTML()" style="width:200px;" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)" onclick="DoEndHTML()"><span></span>Return To Menu</div>
+</div>
+
+
+
+<form method="GET" name="Feed" action="javascript:DoFeedback()">
+<div id="FeedbackPane" class="pane" style="width:100%">
+<div style="
+	background-color:#FFFFFF; border:2px solid black; 
+	border-radius:20px; -webkit-border-radius:20px; -moz-border-radius:20px; 
+	padding:10px 15px; width:400px;">
+Please tell us what you think of Enjoy Sudoku:<br>
+<textarea name="feedback" rows=12 style="width:390px; margin-top:7px; font-size:16px;"></textarea><br>
+<table width="100%"><tr>
+<td style="width:50%; margin-right:2px;" onclick="DoFeedback(true)"><div id="FeedSend" class="PlayButton smaller white" enjoysudoku:action="DoFeedback(true)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>Send</div></td>
+<td style="width:50%; margin-left:2px;" onclick="DoFeedback(false)"><div id="FeedCancel" class="PlayButton smaller white" enjoysudoku:action="DoFeedback(false)" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)"><span></span>Cancel</div></td>
+</tr></table>
+</div>
+</div>
+</form>
+
+
+
+<div id="ManualPane" class="pane" style="height:488px; width:580px;">
+<div style="height:430px; width:580px; overflow:auto; margin-bottom:5px;">
+<div style="background-color:#FFFFFF; border:2px solid black; 
+	border-radius:20px; -webkit-border-radius:20px; -moz-border-radius:20px; 
+	padding:10px 15px; margin:0 auto; width:520px;">
+<table cellpadding=0 class="bultab"><tr>
+<td align=left>
+<p><span class="titl" id="top"><b>Manual</b></span></p>
+
+<p><span class="menu">
+&#160;&bull; <a href="#welcome">Welcome</a><br>
+&#160;&bull; <a href="#sudoku">Sudoku</a><br>
+&#160;&bull; <a href="#playing">Playing</a><br>
+&#160;&bull; <a href="#settings">Settings</a><br>
+&#160;&bull; <a href="#levels">Difficulty Levels</a><br>
+&#160;&bull; <a href="support.html">Tech Support</a>
+</span></p>
+<br>
+<p></p>
+
+<span class="menu" id="welcome">Welcome</span><br>
+<p>Welcome to <b>Enjoy Sudoku</b> for the web by Jason T. Linhart.<br>
+Version 2.0, built on October 28, 2010<br>
+Copyright © 2010 by Jason T. Linhart</p>
+
+
+<span class="menu" id="sudoku">Sudoku</span><br>
+
+<p>The goal is to enter a digit into every cell so that each row, column, and the nine 3x3 blocks, each contain all of the digits, from 1 to 9, exactly once. For information on specific strategies see <A href="http://sudopedia.enjoysudoku.com/">Sudopedia</A>.</p>
+
+<p class="totop"><a href="#top">top</a></p>
+
+
+<span class="menu" id="playing">Playing</span><br>
+
+<p><b>Entering digits</b> - First, click on the digit button for the digit you want to enter. The digit buttons are at the bottom of the board. When clicked, the digit button will turn green to show that it is selected. Then, click on a blank cell to enter the selected digit into that cell.</p>
+
+<p><b>Clearing Mistakes</b> - To clear an already entered digit, click on the Erase button. It will turn green to show that it is selected. Then, click on the cell you want to clear.</p>
+
+<p><b>Pencil Marks</b> - Click on the pencil button to turn on pencil marks mode. The pencil button will turn green to show that pencil mark mode is on. Then click on on a cell to place a pencil mark for the selected digit in that cell, or remove the pencil mark if there is one already. You can click on the pencil button again to turn off pencil mark mode.</p>
+
+<p><b>Hint</b> - Clicking the Hint button, and then selecting Hint, will give you a hint about how to proceed from the current board position. When a hint is displayed, pressing More will give you additional details, pressing Done will return to play. Using hints adds extra time to the play clock. More time is added for hints about more difficult techniques.</p>
+
+<p><b>Solve</b> - Click on the Hint button, and then click on the Show Solution button to show the solution to the current puzzle. Any digits you have not yet entered will be shown as pencil marks. Using solve will add a substantial amount of time to the game clock.</p>
+
+<p><b>Pause</b> - Clicking on the Game button while playing pauses the time clock. The time clock only runs when the board is displayed. If you leave the play screen the time clock also pauses.</p>
+
+<p><b>Undo/Redo</b> - Clicking the Undo button undoes the most recent change you made to the board. Once you click on the Undo button, the Redo button will appear. You can undo and redo a number of recent moves.</p>
+
+<p><b>Save</b> - You can save the current board position for later by clicking on Menu and then Save Game and Exit. At any time in the future, you can Play Game on the main menu and then Saved Game to return to the most recently saved board position.</p>
+
+<p><b>Fill in Pencil Marks</b> - Click on the Hint button, and then select Fill in Pencil Marks to fill in all of the pencil marks based on the current board position. This feature will only appear if the Auto Pencil Marks setting is turned off.</p>
+
+<p><b>Bookmark</b> - You can set a bookmark at the current board position by pressing Menu and then Set Bookmark. At some later time, in the same game, you can press Menu and then Return to Bookmark to return to the most recently bookmarked board position.</p>
+
+<p class="totop"><a href="#top">top</a></p>
+
+
+<span class="menu" id="settings">Settings</span><br>
+
+<p><b>Play Sounds</b> - When on, any time you enter or remove a digit or pencil mark on the board there will be a click sound.</p>
+
+<p><b>Show Time</b> - Offers three possible settings. "Never" never displays the time or how your time compares to others. "At End" shows the time only when the game is complete. "Always" displays the minutes and seconds elapsed at the bottom of the board.</p>
+
+<p><b>Highlight</b> - When on, all of the cells that contain the current digit are highlighted in yellow. All of the cells that contain a pencil mark for the current digit are highlighted in pink. If you are using a different skin, these colors will be different.</p>
+
+<p><b>Blink Completed</b> - When on, any time you complete a house that house will blink yellow and when you complete a digit all of that digit will blink green.</p>
+
+<p><b>Digit Font</b> - Allows you to select which font should be used for displaying digits.</p>
+
+<p><b>Pencil Marks</b> - Offers a choice of four display styles for pencil marks: variable size, small digits in a 3x3 grid, squares, and circles.</p>
+
+<p><b>Skin</b> - Offers a choice of six color schemes used to display the playing field.</p>
+
+<p><b>Mark Mistakes</b> - Offers three possible settings. "Off": will not mark anything. "Illogical": will show any digit which violate the one rule (two or more of the same digit in the same row, column, or block) in red. "On (hint)": will show any digit that is not part of the correct solution to the puzzle in red. When Mark Mistakes is on, it can be used as a powerful hint, so time may be added to the clock when a cell is marked as incorrect. The amount of time added depends on the difficulty level.</p>
+
+<p><b>Auto Pencil Marks</b> - Offers three possible settings. "Off" allows you to enter pencil marks manually. "Erase" removes illogical pencil marks when you place a digit. "On" automatically turns pencil marks on and off based on the current board position.</p>
+
+<p><b>Input</b> - Offers three possible settings. "Digit Then Cell", select a digit and then click on cells to enter that digit into the cells. "Cell Then Digit", select a cell and then click on a digit to enter that digit into the cell. "Hybrid", allows you to switch between the other two modes as needed. If you click on a cell first, you are temporarily in cell then digit mode. If you click on a digit first, you are temporarily in digit then cell mode. If you click on whatever is highlighted in green (a cell or a digit), so nothing is highlighted, your next touch selects a new temporary input mode.</p>
+
+<p><b>Keep Saved Games</b> - When on, saved games will stay around forever. When off, saved games can only be loaded once.</p>
+
+<p class="totop"><a href="#top">top</a></p>
+
+<span class="menu" id="levels">Difficulty Levels</span><br>
+<p>Here are the solving techniques that may be required for each difficulty level. Each level may also require the techniques of any easier level.</p>
+
+<b>1st Lesson</b><br>
+<b>2nd Lesson</b><ul>
+<li><a href="http://sudopedia.enjoysudoku.com/Full_House.html">Full House</a></li>
+</ul>
+
+<b>3rd Lesson</b><br>
+<b>Easiest</b><br>
+<b>Easy as Pie</b><br>
+<b>Picnic</b><br>
+<b>Simple</b><ul>
+<li><a href="http://sudopedia.enjoysudoku.com/Hidden_Single.html">Hidden Single</a> (in blocks)</li>
+</ul>
+
+<b>Easy</b><ul>
+<li><a href="http://sudopedia.enjoysudoku.com/Hidden_Single.html">Hidden Single</a></li>
+</ul>
+
+<b>Moderate</b><ul>
+<li><a href="http://sudopedia.enjoysudoku.com/Locked_Candidates.html">Locked Candidate</a> (direct pointing)</li>
+<li><a href="http://sudopedia.enjoysudoku.com/Naked_Single.html">Naked Single</a></li>
+</ul>
+
+<b>Intricate</b><ul>
+<li><a href="http://sudopedia.enjoysudoku.com/Locked_Candidates.html">Locked Candidate</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/Naked_Pair.html">Naked Pair</a></li>
+</ul>
+
+<b>Difficult</b><ul>
+<li><a href="http://sudopedia.enjoysudoku.com/Uniqueness_Test.html">Unique Rectangle (type 1, 2, 3, 4)</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/Bivalue_Universal_Grave.html">BUG+1</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/Naked_Triple.html">Naked Triple</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/Hidden_Pair.html">Hidden Pair</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/Remote_Pairs.html">Remote Pair</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/X-Wing.html">X-Wing</a></li>
+</ul>
+
+<b>Annoying</b><ul>
+<li><a href="http://sudopedia.enjoysudoku.com/Finned_X-Wing.html">Finned X-Wing</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/Sashimi_X-Wing.html">Sashimi X-Wing</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/Swordfish.html">Swordfish</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/Hidden_Triple.html">Hidden Triple</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/Finned_Swordfish.html">Finned Swordfish</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/Sashimi_Swordfish.html">Sashimi Swordfish</a></li>
+<li><a href="http://www.sudoku.com/boards/viewtopic.php?t=6452#63874">W-Wing (type D)</a></li>
+</ul>
+
+<b>Devious</b><ul>
+<li><a href="http://sudopedia.enjoysudoku.com/Jellyfish.html">Jellyfish</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/Almost_Locked_Candidates.html">Almost Locked Candidates</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/Uniqueness_Test.html#Hidden_Unique_Rectangle">Hidden Unique Rectangle</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/XYZ-Wing.html">XYZ-Wing</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/XY-Wing.html">XY-Wing</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/Avoidable_Rectangle.html">Avoidable Rectangle</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/WXYZ-Wing.html">WXYZ-Wing</a></li>
+</ul>
+
+<b>Fiendish</b><ul>
+<li><a href="http://sudopedia.enjoysudoku.com/Naked_Quad.html">Naked Quad</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/Simple_Colors.html">Simple Colors</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/Hidden_Quad.html">Hidden Quad</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/Finned_Jellyfish.html">Finned Jellyfish</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/Sashimi_Jellyfish.html">Sashimi Jellyfish</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/Fishy_Cycle.html">Fishy Cycle</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/X-Chain.html">X-Chain</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/XY-Chain.html">XY-Chain</a></li>
+</ul>
+
+<!--
+<b>Diabolical</b><br>
+<b>Nightmare</b><ul>
+<li><a href="http://sudopedia.enjoysudoku.com/Sue_de_Coq.html">Sue de Coq</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/3D_Medusa.html">3D Medusa Coloring</a></li>
+<li><a href="http://sudopedia.enjoysudoku.com/ALS-XZ.html">ALS-XZ</a></li>
+</ul>
+-->
+
+<p class="totop"><a href="#top">top</a></p>
+
+</td></tr></table>
+</div></div>
+<div class="PlayButton smaller white"  id="ManualDone" enjoysudoku:action="DoEndHTML()" style="width:200px;" onmousedown="SetDown(this,true)" onmouseup="SetUp(this,true)" onmouseover="SetDown(this,false)" onmouseout="SetUp(this,false)" onclick="DoEndHTML()"><span></span>Return To Menu</div>
+</div>
+
+
+
+</body>
+</html>

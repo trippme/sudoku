@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/game_state.dart';
 
-/// Digit buttons plus tool buttons (pencil, erase, undo, redo, hint).
+/// Digit buttons plus tool buttons (pencil, auto-pencil, erase, undo, redo,
+/// hint).
 class ControlPad extends StatelessWidget {
-  const ControlPad({super.key});
+  final VoidCallback onHint;
+  const ControlPad({super.key, required this.onHint});
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +53,11 @@ class ControlPad extends StatelessWidget {
                 onTap: game.togglePencil,
               ),
               _Tool(
+                icon: Icons.auto_fix_high,
+                label: 'Auto',
+                onTap: game.autoPencil,
+              ),
+              _Tool(
                 icon: Icons.backspace_outlined,
                 label: 'Erase',
                 onTap: game.erase,
@@ -70,7 +77,7 @@ class ControlPad extends StatelessWidget {
               _Tool(
                 icon: Icons.lightbulb_outline,
                 label: 'Hint',
-                onTap: game.hint,
+                onTap: onHint,
               ),
             ],
           ),
@@ -153,8 +160,12 @@ class _Tool extends StatelessWidget {
     return InkWell(
       onTap: enabled ? onTap : null,
       borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: active ? const Color(0xFFE7F0FB) : null,
+          borderRadius: BorderRadius.circular(8),
+        ),
         child: Column(
           children: [
             Icon(icon, color: color),

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'engine/sudoku_engine.dart';
 import 'models/game_state.dart';
-import 'ui/sudoku_grid.dart';
-import 'ui/control_pad.dart';
+import 'models/settings.dart';
+import 'models/stats.dart';
+import 'services/storage.dart';
+import 'ui/home_menu.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Storage.init();
   runApp(const SudokuApp());
 }
 
@@ -14,8 +17,16 @@ class SudokuApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => GameState()..newGame(Difficulty.easy),
+    final settings = Settings.load();
+    final stats = Stats.load();
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: settings),
+        ChangeNotifierProvider.value(value: stats),
+        ChangeNotifierProvider(
+          create: (_) => GameState(settings: settings, stats: stats),
+        ),
+      ],
       child: MaterialApp(
         title: 'Sudoku',
         debugShowCheckedModeBanner: false,
@@ -26,77 +37,8 @@ class SudokuApp extends StatelessWidget {
           ),
           useMaterial3: true,
         ),
-        home: const GameScreen(),
+        home: const HomeMenu(),
       ),
-    );
-  }
-}
-
-class GameScreen extends StatelessWidget {
-  const GameScreen({super.key});
-
-  String _fmt(Duration d) {
-    final m = d.inMinutes.toString();
-    final s = (d.inSeconds % 60).toString().padLeft(2, '0');
-    return '$m:$s';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sudoku'),
-        actions: [
-          Consumer<GameState>(
-            builder: (_, game, _) => Center(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: Text(
-                  '${game.difficulty.label}   ${_fmt(game.elapsed)}',
-                  style: const TextStyle(fontSize: 15),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: const [
-              Padding(
-                padding: EdgeInsets.all(8),
-                child: SudokuGrid(),
-              ),
-              ControlPad(),
-              SizedBox(height: 8),
-              _NewGameBar(),
-              SizedBox(height: 16),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NewGameBar extends StatelessWidget {
-  const _NewGameBar();
-
-  @override
-  Widget build(BuildContext context) {
-    final game = context.read<GameState>();
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      alignment: WrapAlignment.center,
-      children: [
-        for (final d in Difficulty.values)
-          OutlinedButton(
-            onPressed: () => game.newGame(d),
-            child: Text(d.label),
-          ),
-      ],
     );
   }
 }

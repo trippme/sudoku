@@ -38,6 +38,12 @@ dependencies:
   # Simple state management for the game model.
   provider: ^6.1.2
 
+  # Local persistence (saved game, settings, stats).
+  shared_preferences: ^2.3.2
+
+  # HTTP client for the optional thin backend (daily leaderboard sync).
+  http: ^1.2.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

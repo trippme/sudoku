@@ -110,11 +110,14 @@ class _CellView extends StatelessWidget {
     if (selected == index) return const Color(0xFFBBDEFB); // selected
     final selValue = game.cells[selected].value;
     // Highlight same-value cells.
-    if (selValue != 0 && game.cells[index].value == selValue) {
+    if (game.settings.highlightSameValue &&
+        selValue != 0 &&
+        game.cells[index].value == selValue) {
       return const Color(0xFFFFF1A8);
     }
     // Highlight peers (row/col/box) of the selected cell.
-    if (SudokuEngine.peers[selected].contains(index)) {
+    if (game.settings.highlightPeers &&
+        SudokuEngine.peers[selected].contains(index)) {
       return const Color(0xFFEAF1FB);
     }
     return Colors.white;

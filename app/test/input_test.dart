@@ -137,6 +137,25 @@ void main() {
     });
   });
 
+  group('digit-completion flash', () {
+    test('flashes green (kind=digit) when all nine of a number are placed', () {
+      final g = makeGame(InputMode.hybrid);
+      // Arm digit 1 once, then fill every non-given cell that holds a 1.
+      const target = 1;
+      final before = g.flashSerial;
+      g.pressDigit(target);
+      for (var i = 0; i < 81; i++) {
+        if (g.solution[i] == target && !g.cells[i].given) {
+          g.pressCell(i);
+        }
+      }
+      // All nine 1s now placed correctly → a digit-completion flash fired.
+      expect(g.cells.where((c) => c.value == target).length, 9);
+      expect(g.flashSerial, greaterThan(before));
+      expect(g.flashKind, FlashKind.digit);
+    });
+  });
+
   group('highlightDigit', () {
     test('follows the armed digit', () {
       final g = makeGame(InputMode.hybrid);

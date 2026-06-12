@@ -71,7 +71,9 @@ flutter test
 - **Highlighting** like the original: the active digit's cells glow yellow and
   its pencil-marks glow pink; the selected cell's row/column/box are shaded
   (disabled while placing with an armed digit — it just fills the number).
-- **Completed-group flash**: finishing a row, column, or box blinks it twice.
+- **Completed-group flash**: finishing a row, column, or box blinks it twice in
+  amber; placing all nine of a single digit blinks them green — so you can see
+  at a glance when a number is done.
 - **Undo / Redo** with full history.
 - **Mistake marking** (Settings): Off, Conflicts only (logical duplicates), or
   Against solution.

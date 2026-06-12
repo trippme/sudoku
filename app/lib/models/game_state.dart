@@ -8,6 +8,10 @@ import '../services/daily.dart';
 import 'settings.dart';
 import 'stats.dart';
 
+/// What triggered a flash, so the UI can colour it (house = amber, an entire
+/// digit completed = green), echoing the original "Blink Completed".
+enum FlashKind { house, digit }
+
 /// Holds one cell's worth of mutable play state.
 class Cell {
   int value; // 0 = empty
@@ -51,9 +55,11 @@ class GameState extends ChangeNotifier {
   int? selectedCell;
   bool pencilMode = false;
 
-  // When a placement completes a house (row/column/box), these hold the cells
-  // to flash and a serial the UI watches to trigger the animation.
+  // When a placement completes a house (row/column/box) or all nine of a digit,
+  // these hold the cells to flash, what kind it is (for colour), and a serial
+  // the UI watches to trigger the animation.
   Set<int> flashCells = {};
+  FlashKind flashKind = FlashKind.house;
   int flashSerial = 0;
 
   /// True when [d] is the selected digit shown green on the keypad.
@@ -219,10 +225,23 @@ class GameState extends ChangeNotifier {
     }
   }
 
-  /// If placing into [cell] just completed its row, column, or box (all nine
-  /// digits present), mark that house's cells to flash.
+  /// If placing into [cell] just completed all nine of its digit, or its row,
+  /// column, or box, mark the relevant cells to flash. A finished digit takes
+  /// priority (it's the more satisfying "you're done with this number" cue).
   void _maybeFlashCompletedHouses(int cell) {
-    if (cells[cell].value == 0) return; // erase/toggle-off can't complete
+    final digit = cells[cell].value;
+    if (digit == 0) return; // erase/toggle-off can't complete anything
+
+    // All nine of this digit placed, with no conflicts → flash them green.
+    final ofDigit = [for (var i = 0; i < 81; i++) if (cells[i].value == digit) i];
+    if (ofDigit.length == 9 && ofDigit.every((i) => !hasConflict(i))) {
+      flashCells = ofDigit.toSet();
+      flashKind = FlashKind.digit;
+      flashSerial++;
+      return;
+    }
+
+    // Otherwise, a completed row/column/box → flash that house amber.
     final r = SudokuEngine.rowOf(cell);
     final c = SudokuEngine.colOf(cell);
     final bRow = (r ~/ 3) * 3, bCol = (c ~/ 3) * 3;
@@ -249,6 +268,7 @@ class GameState extends ChangeNotifier {
     }
     if (toFlash.isNotEmpty) {
       flashCells = toFlash;
+      flashKind = FlashKind.house;
       flashSerial++;
     }
   }

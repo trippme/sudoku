@@ -77,10 +77,16 @@ class _SudokuGridState extends State<SudokuGrid>
                           for (var col = 0; col < 9; col++)
                             Expanded(
                               child: _CellView(
+                                key: ValueKey('cell-${r * 9 + col}'),
                                 index: r * 9 + col,
                                 game: game,
                                 cellSize: size / 9,
                                 flash: _intensity(r * 9 + col),
+                                // Completed digit flashes green, a completed
+                                // row/column/box flashes amber.
+                                flashColor: game.flashKind == FlashKind.digit
+                                    ? const Color(0xFF66BB6A)
+                                    : const Color(0xFFFFC107),
                               ),
                             ),
                         ],
@@ -101,12 +107,15 @@ class _CellView extends StatelessWidget {
   final GameState game;
   final double cellSize;
   final double flash;
+  final Color flashColor;
 
   const _CellView({
+    super.key,
     required this.index,
     required this.game,
     required this.cellSize,
     this.flash = 0,
+    this.flashColor = const Color(0xFFFFC107),
   });
 
   @override
@@ -132,8 +141,8 @@ class _CellView extends StatelessWidget {
 
     var color = _background(game, index, selected);
     if (flash > 0) {
-      // Blink the completed group amber, echoing the original.
-      color = Color.lerp(color, const Color(0xFFFFC107), flash) ?? color;
+      // Blink the completed group, echoing the original "Blink Completed".
+      color = Color.lerp(color, flashColor, flash) ?? color;
     }
     final mistake = game.isMistake(index);
 

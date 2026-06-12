@@ -41,8 +41,31 @@ class GameState extends ChangeNotifier {
   bool isDaily = false;
   String? dailyDateIso;
 
-  int? selected; // selected cell index
+  // Input state machine, mirroring the original "Enjoy Sudoku":
+  //   selectionMode: 0 = neutral, 1 = a digit is selected (digit-then-cell),
+  //                  2 = a cell is selected (cell-then-digit).
+  //   activeDigit:   the working digit, 1..9 or 10 = erase.
+  //   selectedCell:  the focused cell (only meaningful in mode 2).
+  int selectionMode = 0;
+  int activeDigit = 1;
+  int? selectedCell;
   bool pencilMode = false;
+
+  /// True when [d] is the selected digit shown green on the keypad.
+  bool isDigitActive(int d) => selectionMode == 1 && activeDigit == d;
+
+  /// The digit whose occurrences should be highlighted across the board
+  /// (yellow for placed, pink for pencil marks), or null for none.
+  int? get highlightDigit {
+    if (activeDigit < 1 || activeDigit > 9) return null;
+    if (selectionMode == 1) return activeDigit;
+    if (selectionMode == 2 &&
+        selectedCell != null &&
+        cells[selectedCell!].value == activeDigit) {
+      return activeDigit;
+    }
+    return null;
+  }
 
   final List<_Snapshot> _undo = [];
   final List<_Snapshot> _redo = [];
@@ -89,7 +112,15 @@ class GameState extends ChangeNotifier {
       81,
       (i) => Cell(value: givens[i], given: givens[i] != 0),
     );
-    selected = null;
+    // Initial mode follows the input-method setting (like the original's
+    // `s.j = I.ha`): hybrid starts neutral, the others start pre-armed.
+    selectionMode = switch (settings.inputMode) {
+      InputMode.hybrid => 0,
+      InputMode.digitThenCell => 1,
+      InputMode.cellThenDigit => 2,
+    };
+    activeDigit = 1;
+    selectedCell = null;
     pencilMode = false;
     _undo.clear();
     _redo.clear();
@@ -111,10 +142,51 @@ class GameState extends ChangeNotifier {
     });
   }
 
-  // ---- Selection / modes ------------------------------------------------
+  // ---- Input state machine (faithful to the original) -------------------
 
-  void select(int index) {
-    selected = index;
+  bool get _hybrid => settings.inputMode == InputMode.hybrid;
+
+  /// A keypad press: [d] is 1..9, or 10 for Erase.
+  void pressDigit(int d) {
+    if (_solved) return;
+    if (selectionMode == 2) {
+      // A cell is already selected → set the digit and drop it in.
+      activeDigit = d;
+      if (selectedCell != null) _commit(selectedCell!);
+    } else if (_hybrid && selectionMode == 1 && activeDigit == d) {
+      // Re-tapping the green digit clears the selection (hybrid only).
+      selectionMode = 0;
+    } else {
+      // Select this digit; it stays armed for the next cell taps.
+      selectionMode = 1;
+      activeDigit = d;
+    }
+    notifyListeners();
+  }
+
+  /// A board press on [cell].
+  void pressCell(int cell) {
+    if (_solved) {
+      selectedCell = cell;
+      notifyListeners();
+      return;
+    }
+    if (selectionMode != 1) {
+      // Neutral or cell-selected → (de)select the cell.
+      if (_hybrid && selectionMode == 2 && selectedCell == cell) {
+        selectionMode = 0;
+        selectedCell = null;
+      } else {
+        if (selectionMode == 0) selectionMode = 2;
+        selectedCell = cell;
+        // Highlight follows the digit already in the tapped cell.
+        if (cells[cell].value != 0) activeDigit = cells[cell].value;
+      }
+    } else {
+      // A digit is armed → place it in the tapped cell.
+      selectedCell = cell;
+      _commit(cell);
+    }
     notifyListeners();
   }
 
@@ -123,43 +195,59 @@ class GameState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ---- Editing ----------------------------------------------------------
-
   void _pushUndo() {
     _undo.add(_Snapshot(cells));
     _redo.clear();
   }
 
-  /// Enter [digit] (1..9) into the selected cell, or toggle a pencil mark.
-  void input(int digit) {
-    final i = selected;
-    if (i == null || cells[i].given || _solved) return;
-
-    if (pencilMode) {
-      _pushUndo();
-      if (!cells[i].marks.remove(digit)) cells[i].marks.add(digit);
-    } else {
-      if (cells[i].value == digit) return;
-      _pushUndo();
-      cells[i].value = digit;
-      cells[i].marks.clear();
-      if (settings.autoRemoveMarks) {
-        for (final p in SudokuEngine.peers[i]) {
-          cells[p].marks.remove(digit);
-        }
-      }
+  /// Applies [activeDigit] (place / toggle-off / erase / pencil) to [cell],
+  /// recording undo only if something actually changed. Mirrors `s.xb`.
+  void _commit(int cell) {
+    final snapshot = _Snapshot(cells);
+    if (_apply(cell)) {
+      _undo.add(snapshot);
+      _redo.clear();
+      _afterChange();
     }
-    _afterChange();
   }
 
-  void erase() {
-    final i = selected;
-    if (i == null || cells[i].given || _solved) return;
-    if (cells[i].value == 0 && cells[i].marks.isEmpty) return;
-    _pushUndo();
-    cells[i].value = 0;
-    cells[i].marks.clear();
-    _afterChange();
+  bool _apply(int cell) {
+    final c = cells[cell];
+    if (c.given) return false;
+
+    if (activeDigit >= 10) {
+      // Erase mode: clear a value, else clear pencil marks.
+      if (c.value != 0) {
+        c.value = 0;
+        c.marks.clear();
+        return true;
+      }
+      if (c.marks.isNotEmpty) {
+        c.marks.clear();
+        return true;
+      }
+      return false;
+    }
+
+    if (pencilMode) {
+      if (c.value != 0) return false;
+      if (!c.marks.remove(activeDigit)) c.marks.add(activeDigit);
+      return true;
+    }
+
+    // Normal placement. Tapping the digit already in the cell removes it.
+    if (c.value == activeDigit) {
+      c.value = 0;
+      return true;
+    }
+    c.value = activeDigit;
+    c.marks.clear();
+    if (settings.autoRemoveMarks) {
+      for (final p in SudokuEngine.peers[cell]) {
+        cells[p].marks.remove(activeDigit);
+      }
+    }
+    return true;
   }
 
   void undo() {
@@ -227,7 +315,7 @@ class GameState extends ChangeNotifier {
 
   /// Reveal the correct digit for the selected cell (a "give up on this cell").
   void revealSelected() {
-    final i = selected;
+    final i = selectedCell;
     if (i == null || cells[i].given || _solved || solution[i] == 0) return;
     if (cells[i].value == solution[i]) return;
     _pushUndo();
@@ -327,7 +415,13 @@ class GameState extends ChangeNotifier {
             marks: {for (final d in (c['m'] as List)) d as int},
           )
       ];
-      selected = null;
+      selectionMode = switch (settings.inputMode) {
+        InputMode.hybrid => 0,
+        InputMode.digitThenCell => 1,
+        InputMode.cellThenDigit => 2,
+      };
+      activeDigit = 1;
+      selectedCell = null;
       pencilMode = false;
       _undo.clear();
       _redo.clear();

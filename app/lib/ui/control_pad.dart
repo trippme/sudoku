@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/game_state.dart';
 
-/// Digit buttons plus tool buttons (pencil, auto-pencil, erase, undo, redo,
-/// hint).
+/// Digit keypad plus tool buttons. The keypad mirrors the original
+/// "Enjoy Sudoku": a selected digit (or Erase) stays highlighted green so you
+/// can tap multiple cells with it.
 class ControlPad extends StatelessWidget {
   final VoidCallback onHint;
   const ControlPad({super.key, required this.onHint});
@@ -36,7 +37,8 @@ class ControlPad extends StatelessWidget {
                   child: _DigitButton(
                     digit: d,
                     remaining: 9 - game.placedCount(d),
-                    onTap: () => game.input(d),
+                    selected: game.isDigitActive(d),
+                    onTap: () => game.pressDigit(d),
                   ),
                 ),
             ],
@@ -53,14 +55,15 @@ class ControlPad extends StatelessWidget {
                 onTap: game.togglePencil,
               ),
               _Tool(
+                icon: Icons.backspace_outlined,
+                label: 'Erase',
+                active: game.isDigitActive(10),
+                onTap: () => game.pressDigit(10),
+              ),
+              _Tool(
                 icon: Icons.auto_fix_high,
                 label: 'Auto',
                 onTap: game.autoPencil,
-              ),
-              _Tool(
-                icon: Icons.backspace_outlined,
-                label: 'Erase',
-                onTap: game.erase,
               ),
               _Tool(
                 icon: Icons.undo,
@@ -90,25 +93,41 @@ class ControlPad extends StatelessWidget {
 class _DigitButton extends StatelessWidget {
   final int digit;
   final int remaining;
+  final bool selected;
   final VoidCallback onTap;
 
   const _DigitButton({
     required this.digit,
     required this.remaining,
+    required this.selected,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final done = remaining <= 0;
+    final Color bg;
+    final Color fg;
+    if (selected) {
+      bg = const Color(0xFF4CAF50); // green = armed (original behavior)
+      fg = Colors.white;
+    } else if (done) {
+      bg = Colors.grey.shade200;
+      fg = Colors.grey;
+    } else {
+      bg = const Color(0xFFE7F0FB);
+      fg = const Color(0xFF2E6FB7);
+    }
     return Padding(
       padding: const EdgeInsets.all(2),
       child: Material(
-        color: done ? Colors.grey.shade200 : const Color(0xFFE7F0FB),
+        color: bg,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
-          onTap: done ? null : onTap,
+          // When a digit is "done" it can still be selected for highlighting,
+          // so keep it tappable.
+          onTap: onTap,
           child: SizedBox(
             height: 64,
             child: Column(
@@ -119,12 +138,15 @@ class _DigitButton extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: done ? Colors.grey : const Color(0xFF2E6FB7),
+                    color: fg,
                   ),
                 ),
                 Text(
                   done ? '✓' : '$remaining',
-                  style: const TextStyle(fontSize: 11, color: Colors.black45),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: selected ? Colors.white70 : Colors.black45,
+                  ),
                 ),
               ],
             ),
@@ -155,7 +177,7 @@ class _Tool extends StatelessWidget {
     final color = !enabled
         ? Colors.grey.shade400
         : active
-            ? const Color(0xFF2E6FB7)
+            ? Colors.white
             : Colors.black87;
     return InkWell(
       onTap: enabled ? onTap : null,
@@ -163,7 +185,7 @@ class _Tool extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFFE7F0FB) : null,
+          color: active ? const Color(0xFF4CAF50) : null,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(

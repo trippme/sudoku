@@ -63,7 +63,7 @@ class _CellView extends StatelessWidget {
     final cell = game.cells[index];
     final r = SudokuEngine.rowOf(index);
     final col = SudokuEngine.colOf(index);
-    final selected = game.selected;
+    final selected = game.selectedCell;
 
     // Thick borders on box boundaries.
     Border border = Border(
@@ -83,7 +83,7 @@ class _CellView extends StatelessWidget {
     final mistake = game.isMistake(index);
 
     return GestureDetector(
-      onTap: () => game.select(index),
+      onTap: () => game.pressCell(index),
       child: Container(
         decoration: BoxDecoration(color: color, border: border),
         alignment: Alignment.center,
@@ -106,17 +106,26 @@ class _CellView extends StatelessWidget {
   }
 
   Color _background(GameState game, int index, int? selected) {
-    if (selected == null) return Colors.white;
-    if (selected == index) return const Color(0xFFBBDEFB); // selected
-    final selValue = game.cells[selected].value;
-    // Highlight same-value cells.
-    if (game.settings.highlightSameValue &&
-        selValue != 0 &&
-        game.cells[index].value == selValue) {
+    if (selected == index && selected != null) {
+      return const Color(0xFFBBDEFB); // selected cell
+    }
+    final cell = game.cells[index];
+    final hd = game.highlightDigit; // digit-driven highlight (the original feel)
+
+    // Cells holding the active digit glow yellow.
+    if (game.settings.highlightSameValue && hd != null && cell.value == hd) {
       return const Color(0xFFFFF1A8);
     }
-    // Highlight peers (row/col/box) of the selected cell.
+    // Cells pencil-marked with the active digit glow pink.
+    if (game.settings.highlightSameValue &&
+        hd != null &&
+        cell.value == 0 &&
+        cell.marks.contains(hd)) {
+      return const Color(0xFFF7D6E8);
+    }
+    // Shade the selected cell's row/column/box.
     if (game.settings.highlightPeers &&
+        selected != null &&
         SudokuEngine.peers[selected].contains(index)) {
       return const Color(0xFFEAF1FB);
     }

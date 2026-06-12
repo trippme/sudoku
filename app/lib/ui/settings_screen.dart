@@ -12,6 +12,39 @@ class SettingsScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
+          const _SectionHeader('Input'),
+          ListTile(
+            title: const Text('Input method'),
+            subtitle: Text(settings.inputMode.label),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              final choice = await showDialog<InputMode>(
+                context: context,
+                builder: (_) => SimpleDialog(
+                  title: const Text('Input method'),
+                  children: [
+                    for (final m in InputMode.values)
+                      ListTile(
+                        title: Text(m.label),
+                        subtitle: Text(switch (m) {
+                          InputMode.hybrid =>
+                            'Tap a digit or a cell first — the app follows your lead.',
+                          InputMode.digitThenCell =>
+                            'Pick a digit, then tap cells to place it.',
+                          InputMode.cellThenDigit =>
+                            'Pick a cell, then tap a digit.',
+                        }),
+                        trailing: settings.inputMode == m
+                            ? const Icon(Icons.check, color: Color(0xFF2E6FB7))
+                            : null,
+                        onTap: () => Navigator.pop(context, m),
+                      ),
+                  ],
+                ),
+              );
+              if (choice != null) settings.setInputMode(choice);
+            },
+          ),
           const _SectionHeader('Assistance'),
           ListTile(
             title: const Text('Mark mistakes'),

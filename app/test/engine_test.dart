@@ -36,10 +36,7 @@ void main() {
 
   group('hint engine', () {
     test('finds a naked single', () {
-      // A grid where one empty cell has exactly one candidate.
-      final grid = List<int>.filled(81, 0);
-      // Fill row 0 cols 1..8 and col 0 rows 1..8 and box around (0,0) to force
-      // cell 0 to a single candidate. Easier: use a full solution minus one.
+      // Take a full solution and blank one cell → it's a naked single.
       final engine = SudokuEngine(7);
       final puzzle = engine.generate(Difficulty.easy);
       // Take the solution, blank exactly one cell → that cell is a naked single.

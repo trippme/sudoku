@@ -103,14 +103,14 @@ class _DigitButton extends StatelessWidget {
     final done = remaining <= 0;
     return Padding(
       padding: const EdgeInsets.all(2),
-      child: AspectRatio(
-        aspectRatio: 0.8,
-        child: Material(
-          color: done ? Colors.grey.shade200 : const Color(0xFFE7F0FB),
+      child: Material(
+        color: done ? Colors.grey.shade200 : const Color(0xFFE7F0FB),
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
           borderRadius: BorderRadius.circular(8),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: done ? null : onTap,
+          onTap: done ? null : onTap,
+          child: SizedBox(
+            height: 64,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [

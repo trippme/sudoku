@@ -56,6 +56,20 @@ cd app
 flutter test
 ```
 
+### Sideload to an Android phone (Windows)
+
+With a USB-connected phone that has **USB debugging** enabled, double-click
+`sideload.bat` (or run it from a terminal) to build and install:
+
+```bat
+sideload.bat          REM release build (default)
+sideload.bat debug    REM faster debug build
+```
+
+The release build is signed with debug keys, so it installs without setting up
+a keystore (fine for personal sideloading; a real keystore is needed for store
+release).
+
 ## Features
 
 **Gameplay (matches the original "Enjoy Sudoku" feel)**

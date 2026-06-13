@@ -3,10 +3,13 @@ import 'package:provider/provider.dart';
 import '../engine/sudoku_engine.dart';
 import '../models/game_state.dart';
 import '../models/stats.dart';
+import '../models/profile.dart';
 import '../services/game_catalog.dart';
+import '../services/leaderboard.dart';
 import 'game_screen.dart';
 import 'stats_screen.dart';
 import 'settings_screen.dart';
+import 'inbox_screen.dart';
 
 /// The main menu: resume any in-progress game, start a new one, daily, stats,
 /// settings. Multiple games can be in progress at once (issue #1, "ideal").
@@ -18,16 +21,36 @@ class HomeMenu extends StatefulWidget {
 }
 
 class _HomeMenuState extends State<HomeMenu> {
+  int _unseen = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshInbox();
+  }
+
+  Future<void> _refreshInbox() async {
+    final profile = context.read<Profile>();
+    if (!profile.hasIdentity) return;
+    final games = await context.read<LeaderboardService>().inbox(profile.email);
+    if (mounted) {
+      setState(() => _unseen = games.where((g) => !g.seen).length);
+    }
+  }
+
   static String _fmt(int seconds) {
     final m = seconds ~/ 60;
     final s = (seconds % 60).toString().padLeft(2, '0');
     return '$m:$s';
   }
 
-  /// Push a screen, then refresh the in-progress list when we come back.
+  /// Push a screen, then refresh the in-progress list (and inbox) on return.
   Future<void> _open(Widget screen) async {
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+      _refreshInbox();
+    }
   }
 
   void _startNew(void Function() start) {
@@ -149,6 +172,11 @@ class _HomeMenuState extends State<HomeMenu> {
                   ),
 
                 const SizedBox(height: 16),
+                _MenuButton(
+                  icon: Icons.inbox,
+                  label: _unseen > 0 ? 'Inbox ($_unseen new)' : 'Inbox',
+                  onTap: () => _open(const InboxScreen()),
+                ),
                 _MenuButton(
                   icon: Icons.bar_chart,
                   label: 'Statistics',

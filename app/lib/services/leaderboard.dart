@@ -40,6 +40,37 @@ class SubmitOutcome {
   SubmitOutcome({required this.improved, required this.rank, required this.total});
 }
 
+/// A game a friend sent you (your inbox).
+class ReceivedGame {
+  final int id; // share id (for marking seen)
+  final String fromName;
+  final String fromEmail;
+  final int gameId;
+  final String message;
+  final bool seen;
+  final String createdAt;
+
+  ReceivedGame({
+    required this.id,
+    required this.fromName,
+    required this.fromEmail,
+    required this.gameId,
+    required this.message,
+    required this.seen,
+    required this.createdAt,
+  });
+
+  factory ReceivedGame.fromJson(Map<String, dynamic> m) => ReceivedGame(
+        id: (m['id'] ?? 0) as int,
+        fromName: (m['from_name'] ?? '') as String,
+        fromEmail: (m['from_email'] ?? '') as String,
+        gameId: (m['game_id'] ?? 0) as int,
+        message: (m['message'] ?? '') as String,
+        seen: ((m['seen'] ?? 0) as int) != 0,
+        createdAt: (m['created_at'] ?? '') as String,
+      );
+}
+
 /// The app talks to this interface. Today it can be the offline [NullLeaderboard]
 /// or the [RemoteLeaderboard] pointed at the PHP backend (see /server).
 abstract class LeaderboardService {
@@ -62,6 +93,21 @@ abstract class LeaderboardService {
 
   /// One player's recent history across games (for cloud sync).
   Future<List<ResultEntry>> playerHistory(String email, {int limit = 100});
+
+  /// Send a game to a friend's inbox. Returns true on success.
+  Future<bool> sendGame({
+    required String fromEmail,
+    required String fromName,
+    required String toEmail,
+    required int gameId,
+    String message = '',
+  });
+
+  /// Games friends have sent you, newest first.
+  Future<List<ReceivedGame>> inbox(String email, {int limit = 50});
+
+  /// Mark a received game as seen.
+  Future<void> markSeen(int shareId, String email);
 }
 
 /// Offline no-op implementation: lets the app run with no backend configured.
@@ -86,6 +132,22 @@ class NullLeaderboard implements LeaderboardService {
 
   @override
   Future<List<ResultEntry>> playerHistory(String email, {int limit = 100}) async => const [];
+
+  @override
+  Future<bool> sendGame({
+    required String fromEmail,
+    required String fromName,
+    required String toEmail,
+    required int gameId,
+    String message = '',
+  }) async =>
+      false;
+
+  @override
+  Future<List<ReceivedGame>> inbox(String email, {int limit = 50}) async => const [];
+
+  @override
+  Future<void> markSeen(int shareId, String email) async {}
 }
 
 /// REST client for the PHP backend in `/server`.
@@ -172,4 +234,68 @@ class RemoteLeaderboard implements LeaderboardService {
   @override
   Future<List<ResultEntry>> playerHistory(String email, {int limit = 100}) =>
       _getEntries(_uri('player', {'email': email, 'limit': '$limit'}));
+
+  Map<String, String> get _writeHeaders => {
+        'Content-Type': 'application/json',
+        if (apiKey != null && apiKey!.isNotEmpty) 'X-Api-Key': apiKey!,
+      };
+
+  @override
+  Future<bool> sendGame({
+    required String fromEmail,
+    required String fromName,
+    required String toEmail,
+    required int gameId,
+    String message = '',
+  }) async {
+    try {
+      final res = await _client
+          .post(
+            _uri('share'),
+            headers: _writeHeaders,
+            body: jsonEncode({
+              'fromEmail': fromEmail,
+              'fromName': fromName,
+              'toEmail': toEmail,
+              'gameId': gameId,
+              'message': message,
+            }),
+          )
+          .timeout(const Duration(seconds: 8));
+      if (res.statusCode < 200 || res.statusCode >= 300) return false;
+      return (jsonDecode(res.body) as Map<String, dynamic>)['ok'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<List<ReceivedGame>> inbox(String email, {int limit = 50}) async {
+    try {
+      final res = await _client
+          .get(_uri('inbox', {'email': email, 'limit': '$limit'}))
+          .timeout(const Duration(seconds: 8));
+      if (res.statusCode != 200) return const [];
+      final m = jsonDecode(res.body) as Map<String, dynamic>;
+      final list = (m['shares'] as List? ?? const []);
+      return list
+          .map((e) => ReceivedGame.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  @override
+  Future<void> markSeen(int shareId, String email) async {
+    try {
+      await _client
+          .post(
+            _uri('seen'),
+            headers: _writeHeaders,
+            body: jsonEncode({'id': shareId, 'email': email}),
+          )
+          .timeout(const Duration(seconds: 8));
+    } catch (_) {/* best effort */}
+  }
 }

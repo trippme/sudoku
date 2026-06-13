@@ -16,6 +16,41 @@ class HomeMenu extends StatelessWidget {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
   }
 
+  /// Returns true if it's OK to start a new game. If a game with real progress
+  /// is in flight, asks first (issue #1: don't silently lose progress).
+  Future<bool> _confirmAbandon(BuildContext context) async {
+    if (!GameState.savedGameHasProgress()) return true;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Abandon current game?'),
+        content: const Text(
+          'You have a puzzle in progress. Starting a new game will discard it.\n\n'
+          'Use "Continue" instead to go back to it.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep playing'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Discard & start'),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
+  }
+
+  /// Confirms (if needed), then runs [start] and opens the game.
+  Future<void> _startGame(BuildContext context, void Function() start) async {
+    if (!await _confirmAbandon(context)) return;
+    if (!context.mounted) return;
+    start();
+    _open(context, const GameScreen());
+  }
+
   Future<void> _playByNumber(BuildContext context) async {
     final controller = TextEditingController();
     final number = await showDialog<int>(
@@ -47,8 +82,7 @@ class HomeMenu extends StatelessWidget {
       ),
     );
     if (number == null || !context.mounted) return;
-    context.read<GameState>().playGame(number);
-    _open(context, const GameScreen());
+    await _startGame(context, () => context.read<GameState>().playGame(number));
   }
 
   @override
@@ -104,10 +138,10 @@ class HomeMenu extends StatelessWidget {
                   label: dailyDone
                       ? 'Daily Puzzle ✓ (${GameCatalog.dailyDifficultyFor(today).label})'
                       : 'Daily Puzzle (${GameCatalog.dailyDifficultyFor(today).label})',
-                  onTap: () {
-                    context.read<GameState>().startDaily(today);
-                    _open(context, const GameScreen());
-                  },
+                  onTap: () => _startGame(
+                    context,
+                    () => context.read<GameState>().startDaily(today),
+                  ),
                 ),
                 _MenuButton(
                   icon: Icons.tag,
@@ -124,10 +158,10 @@ class HomeMenu extends StatelessWidget {
                   _MenuButton(
                     icon: Icons.grid_on,
                     label: d.label,
-                    onTap: () {
-                      context.read<GameState>().newGame(d);
-                      _open(context, const GameScreen());
-                    },
+                    onTap: () => _startGame(
+                      context,
+                      () => context.read<GameState>().newGame(d),
+                    ),
                   ),
 
                 const SizedBox(height: 16),

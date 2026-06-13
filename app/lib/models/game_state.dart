@@ -518,6 +518,26 @@ class GameState extends ChangeNotifier {
   /// True if a resumable saved game exists.
   static bool hasSavedGame() => Storage.getString(_saveKey) != null;
 
+  /// True if the saved game has actual progress worth protecting — at least one
+  /// player-entered digit or pencil mark. Used to confirm before abandoning it;
+  /// a freshly started game with no moves won't trigger a prompt.
+  static bool savedGameHasProgress() {
+    final raw = Storage.getString(_saveKey);
+    if (raw == null) return false;
+    try {
+      final m = jsonDecode(raw) as Map<String, dynamic>;
+      for (final c in (m['cells'] as List)) {
+        final given = c['g'] as bool;
+        final value = c['v'] as int;
+        final marks = c['m'] as List;
+        if (!given && (value != 0 || marks.isNotEmpty)) return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Restore a previously saved in-progress game. Returns false if none/corrupt.
   bool restore() {
     final raw = Storage.getString(_saveKey);

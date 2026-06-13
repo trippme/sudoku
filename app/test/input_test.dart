@@ -173,6 +173,19 @@ void main() {
     });
   });
 
+  group('abandon-protection (issue #1)', () {
+    test('a fresh game has no progress; a move makes it progress', () {
+      final g = makeGame(InputMode.hybrid);
+      // Just started, no user moves yet → nothing to protect.
+      expect(GameState.savedGameHasProgress(), isFalse);
+      // Make a move → now there is progress worth confirming before discarding.
+      final cell = firstEmpty(g);
+      g.pressDigit(5);
+      g.pressCell(cell);
+      expect(GameState.savedGameHasProgress(), isTrue);
+    });
+  });
+
   test('given cells are never editable', () {
     final g = makeGame(InputMode.hybrid);
     final given = g.cells.indexWhere((c) => c.given);

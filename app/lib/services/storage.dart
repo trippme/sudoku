@@ -13,4 +13,5 @@ class Storage {
   static Future<void> setString(String key, String value) =>
       _prefs.setString(key, value);
   static Future<void> remove(String key) => _prefs.remove(key);
+  static Set<String> getKeys() => _prefs.getKeys();
 }

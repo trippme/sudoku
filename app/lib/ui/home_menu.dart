@@ -8,50 +8,34 @@ import 'game_screen.dart';
 import 'stats_screen.dart';
 import 'settings_screen.dart';
 
-/// The main menu: continue, new game, daily, stats, settings.
-class HomeMenu extends StatelessWidget {
+/// The main menu: resume any in-progress game, start a new one, daily, stats,
+/// settings. Multiple games can be in progress at once (issue #1, "ideal").
+class HomeMenu extends StatefulWidget {
   const HomeMenu({super.key});
 
-  void _open(BuildContext context, Widget screen) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  @override
+  State<HomeMenu> createState() => _HomeMenuState();
+}
+
+class _HomeMenuState extends State<HomeMenu> {
+  static String _fmt(int seconds) {
+    final m = seconds ~/ 60;
+    final s = (seconds % 60).toString().padLeft(2, '0');
+    return '$m:$s';
   }
 
-  /// Returns true if it's OK to start a new game. If a game with real progress
-  /// is in flight, asks first (issue #1: don't silently lose progress).
-  Future<bool> _confirmAbandon(BuildContext context) async {
-    if (!GameState.savedGameHasProgress()) return true;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Abandon current game?'),
-        content: const Text(
-          'You have a puzzle in progress. Starting a new game will discard it.\n\n'
-          'Use "Continue" instead to go back to it.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Keep playing'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Discard & start'),
-          ),
-        ],
-      ),
-    );
-    return ok ?? false;
+  /// Push a screen, then refresh the in-progress list when we come back.
+  Future<void> _open(Widget screen) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+    if (mounted) setState(() {});
   }
 
-  /// Confirms (if needed), then runs [start] and opens the game.
-  Future<void> _startGame(BuildContext context, void Function() start) async {
-    if (!await _confirmAbandon(context)) return;
-    if (!context.mounted) return;
+  void _startNew(void Function() start) {
     start();
-    _open(context, const GameScreen());
+    _open(const GameScreen());
   }
 
-  Future<void> _playByNumber(BuildContext context) async {
+  Future<void> _playByNumber() async {
     final controller = TextEditingController();
     final number = await showDialog<int>(
       context: context,
@@ -81,24 +65,28 @@ class HomeMenu extends StatelessWidget {
         ],
       ),
     );
-    if (number == null || !context.mounted) return;
-    await _startGame(context, () => context.read<GameState>().playGame(number));
+    if (number == null || !mounted) return;
+    _startNew(() => context.read<GameState>().playGame(number));
+  }
+
+  void _delete(int id) {
+    GameState.deleteSavedGame(id);
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    final hasSaved = GameState.hasSavedGame();
     final stats = context.watch<Stats>();
     final today = DateTime.now();
     final dailyDone = stats.dailyDoneToday(today);
+    final saved = GameState.listSavedGames();
 
     return Scaffold(
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
+            constraints: const BoxConstraints(maxWidth: 440),
             child: ListView(
-              shrinkWrap: true,
               padding: const EdgeInsets.all(24),
               children: [
                 const SizedBox(height: 12),
@@ -118,62 +106,58 @@ class HomeMenu extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 16),
                   ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 24),
 
-                if (hasSaved)
-                  _MenuButton(
-                    icon: Icons.play_arrow,
-                    label: 'Continue',
-                    primary: true,
-                    onTap: () {
-                      final game = context.read<GameState>();
-                      if (game.restore()) {
-                        _open(context, const GameScreen());
-                      }
-                    },
-                  ),
+                // In-progress games (resume any of them).
+                if (saved.isNotEmpty) ...[
+                  const _SectionLabel('In Progress'),
+                  for (final g in saved)
+                    _InProgressTile(
+                      summary: g,
+                      timeText: _fmt(g.elapsedSeconds),
+                      onResume: () => _startNew(
+                        () => context.read<GameState>().resumeGame(g.gameId),
+                      ),
+                      onDelete: () => _delete(g.gameId),
+                    ),
+                  const SizedBox(height: 12),
+                ],
 
                 _MenuButton(
                   icon: Icons.today,
                   label: dailyDone
                       ? 'Daily Puzzle ✓ (${GameCatalog.dailyDifficultyFor(today).label})'
                       : 'Daily Puzzle (${GameCatalog.dailyDifficultyFor(today).label})',
-                  onTap: () => _startGame(
-                    context,
+                  onTap: () => _startNew(
                     () => context.read<GameState>().startDaily(today),
                   ),
                 ),
                 _MenuButton(
                   icon: Icons.tag,
                   label: 'Play by Number',
-                  onTap: () => _playByNumber(context),
+                  onTap: _playByNumber,
                 ),
 
                 const SizedBox(height: 8),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 4),
-                  child: Text('New Game', style: TextStyle(color: Colors.black54)),
-                ),
+                const _SectionLabel('New Game'),
                 for (final d in Difficulty.values)
                   _MenuButton(
                     icon: Icons.grid_on,
                     label: d.label,
-                    onTap: () => _startGame(
-                      context,
-                      () => context.read<GameState>().newGame(d),
-                    ),
+                    onTap: () =>
+                        _startNew(() => context.read<GameState>().newGame(d)),
                   ),
 
                 const SizedBox(height: 16),
                 _MenuButton(
                   icon: Icons.bar_chart,
                   label: 'Statistics',
-                  onTap: () => _open(context, const StatsScreen()),
+                  onTap: () => _open(const StatsScreen()),
                 ),
                 _MenuButton(
                   icon: Icons.settings,
                   label: 'Settings',
-                  onTap: () => _open(context, const SettingsScreen()),
+                  onTap: () => _open(const SettingsScreen()),
                 ),
               ],
             ),
@@ -184,17 +168,65 @@ class HomeMenu extends StatelessWidget {
   }
 }
 
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Text(text, style: const TextStyle(color: Colors.black54)),
+      );
+}
+
+class _InProgressTile extends StatelessWidget {
+  final SavedGameSummary summary;
+  final String timeText;
+  final VoidCallback onResume;
+  final VoidCallback onDelete;
+
+  const _InProgressTile({
+    required this.summary,
+    required this.timeText,
+    required this.onResume,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final empties = 81 - summary.givenCount;
+    return Card(
+      color: const Color(0xFFE7F0FB),
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: ListTile(
+        leading: Icon(summary.isDaily ? Icons.today : Icons.play_arrow,
+            color: const Color(0xFF2E6FB7)),
+        title: Text(
+          '${summary.isDaily ? 'Daily · ' : ''}${summary.difficulty.label}',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          '#${summary.gameId} · $timeText · ${summary.filledCount}/$empties filled',
+        ),
+        trailing: IconButton(
+          icon: const Icon(Icons.delete_outline),
+          tooltip: 'Discard this game',
+          onPressed: onDelete,
+        ),
+        onTap: onResume,
+      ),
+    );
+  }
+}
+
 class _MenuButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  final bool primary;
 
   const _MenuButton({
     required this.icon,
     required this.label,
     required this.onTap,
-    this.primary = false,
   });
 
   @override
@@ -204,8 +236,6 @@ class _MenuButton extends StatelessWidget {
       child: FilledButton.tonalIcon(
         style: FilledButton.styleFrom(
           minimumSize: const Size.fromHeight(52),
-          backgroundColor: primary ? const Color(0xFF2E6FB7) : null,
-          foregroundColor: primary ? Colors.white : null,
           alignment: Alignment.centerLeft,
         ),
         icon: Icon(icon),

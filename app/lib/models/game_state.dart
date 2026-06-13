@@ -32,8 +32,35 @@ class _Snapshot {
   _Snapshot(List<Cell> source) : cells = source.map((c) => c.copy()).toList();
 }
 
+/// A lightweight summary of a saved, in-progress game (for the menu list).
+class SavedGameSummary {
+  final int gameId;
+  final Difficulty difficulty;
+  final bool isDaily;
+  final int elapsedSeconds;
+  final int filledCount; // player-filled cells (progress indicator)
+  final int givenCount;
+  final int lastPlayed; // epoch millis, for sorting
+
+  SavedGameSummary({
+    required this.gameId,
+    required this.difficulty,
+    required this.isDaily,
+    required this.elapsedSeconds,
+    required this.filledCount,
+    required this.givenCount,
+    required this.lastPlayed,
+  });
+}
+
 class GameState extends ChangeNotifier {
-  static const _saveKey = 'game_v1';
+  // Each in-progress game is stored under "game_<gameId>". A game becomes a
+  // persisted slot only once it has progress, so untouched games don't pile up.
+  static const _keyPrefix = 'game_';
+  static const _legacyKey = 'game_v1';
+  static const _maxSlots = 24;
+
+  static String _slotKey(int id) => '$_keyPrefix$id';
 
   final SudokuEngine engine = SudokuEngine();
   final Settings settings;
@@ -100,10 +127,20 @@ class GameState extends ChangeNotifier {
   Timer? _timer;
   bool _solved = false;
   bool _completionRecorded = false;
+  int lastPlayed = 0; // epoch millis of last save
 
   bool get isSolved => _solved;
   bool get canUndo => _undo.isNotEmpty;
   bool get canRedo => _redo.isNotEmpty;
+
+  /// True once the player has entered any digit or pencil mark. A game is only
+  /// persisted (kept in the in-progress list) once it has progress.
+  bool get hasProgress {
+    for (final c in cells) {
+      if (!c.given && (c.value != 0 || c.marks.isNotEmpty)) return true;
+    }
+    return false;
+  }
 
   // ---- Game lifecycle ---------------------------------------------------
 
@@ -114,17 +151,20 @@ class GameState extends ChangeNotifier {
     stats.recordStart(puzzle.difficulty);
   }
 
-  /// Start (or resume in-progress) the deterministic daily puzzle for [date].
+  /// Start the deterministic daily puzzle for [date] — resuming saved progress
+  /// on it if you've already begun it.
   void startDaily(DateTime date) {
     final id = GameCatalog.dailyGameId(date);
+    if (hasSlot(id) && resumeGame(id)) return;
     final puzzle = GameCatalog.puzzleForGame(id);
     _install(id, puzzle, daily: true, dailyIso: Stats.isoDate(date));
     stats.recordStart(puzzle.difficulty);
   }
 
   /// Start a specific game by its number (for "play by number" and shared
-  /// games). Same number → same puzzle for everyone.
+  /// games). Resumes saved progress on that number if any exists.
   void playGame(int id) {
+    if (hasSlot(id) && resumeGame(id)) return;
     final puzzle = GameCatalog.puzzleForGame(id);
     _install(id, puzzle, daily: false, dailyIso: null);
     stats.recordStart(puzzle.difficulty);
@@ -145,6 +185,7 @@ class GameState extends ChangeNotifier {
     dailyDateIso = dailyIso;
     hintsUsed = 0;
     mistakesMade = 0;
+    lastPlayed = 0;
     lastOutcome = null;
     cells = List.generate(
       81,
@@ -462,7 +503,7 @@ class GameState extends ChangeNotifier {
         now: DateTime.now(),
       );
       _submitResult();
-      Storage.remove(_saveKey); // finished game no longer needs resuming
+      Storage.remove(_slotKey(gameId)); // finished game leaves the in-progress list
     }
   }
 
@@ -499,6 +540,7 @@ class GameState extends ChangeNotifier {
         'elapsed': elapsed.inSeconds,
         'hintsUsed': hintsUsed,
         'mistakesMade': mistakesMade,
+        'lastPlayed': lastPlayed,
         'solution': solution,
         'cells': [
           for (final c in cells)
@@ -506,51 +548,96 @@ class GameState extends ChangeNotifier {
         ],
       });
 
+  /// Persist the active game to its own slot — but only once it has progress,
+  /// so untouched games never clutter the in-progress list.
   void _save() {
-    if (_solved) return;
-    Storage.setString(_saveKey, _encode());
+    if (_solved || gameId == 0) return;
+    final key = _slotKey(gameId);
+    if (!hasProgress) {
+      Storage.remove(key);
+      return;
+    }
+    lastPlayed = DateTime.now().millisecondsSinceEpoch;
+    Storage.setString(key, _encode());
+    _pruneSlots();
   }
 
-  // Lightweight save used by the per-second timer (same payload; kept separate
-  // so the intent is clear and easy to throttle later if needed).
   void _saveLight() => _save();
 
-  /// True if a resumable saved game exists.
-  static bool hasSavedGame() => Storage.getString(_saveKey) != null;
-
-  /// True if the saved game has actual progress worth protecting — at least one
-  /// player-entered digit or pencil mark. Used to confirm before abandoning it;
-  /// a freshly started game with no moves won't trigger a prompt.
-  static bool savedGameHasProgress() {
-    final raw = Storage.getString(_saveKey);
-    if (raw == null) return false;
-    try {
-      final m = jsonDecode(raw) as Map<String, dynamic>;
-      for (final c in (m['cells'] as List)) {
-        final given = c['g'] as bool;
-        final value = c['v'] as int;
-        final marks = c['m'] as List;
-        if (!given && (value != 0 || marks.isNotEmpty)) return true;
-      }
-      return false;
-    } catch (_) {
-      return false;
+  /// Keep at most [_maxSlots] in-progress games, dropping the oldest.
+  static void _pruneSlots() {
+    final games = listSavedGames();
+    if (games.length <= _maxSlots) return;
+    for (final g in games.sublist(_maxSlots)) {
+      Storage.remove(_slotKey(g.gameId));
     }
   }
 
-  /// Restore a previously saved in-progress game. Returns false if none/corrupt.
-  bool restore() {
-    final raw = Storage.getString(_saveKey);
+  /// True if an in-progress slot exists for [id].
+  static bool hasSlot(int id) => Storage.getString(_slotKey(id)) != null;
+
+  /// All saved in-progress games, newest first.
+  static List<SavedGameSummary> listSavedGames() {
+    final out = <SavedGameSummary>[];
+    for (final key in Storage.getKeys()) {
+      if (!key.startsWith(_keyPrefix) || key == _legacyKey) continue;
+      final raw = Storage.getString(key);
+      if (raw == null) continue;
+      try {
+        final m = jsonDecode(raw) as Map<String, dynamic>;
+        var filled = 0, givens = 0;
+        for (final c in (m['cells'] as List)) {
+          if (c['g'] as bool) {
+            givens++;
+          } else if ((c['v'] as int) != 0) {
+            filled++;
+          }
+        }
+        out.add(SavedGameSummary(
+          gameId: (m['gameId'] ?? 0) as int,
+          difficulty: Difficulty.values[m['difficulty'] as int],
+          isDaily: (m['isDaily'] ?? false) as bool,
+          elapsedSeconds: (m['elapsed'] ?? 0) as int,
+          filledCount: filled,
+          givenCount: givens,
+          lastPlayed: (m['lastPlayed'] ?? 0) as int,
+        ));
+      } catch (_) {/* skip corrupt slot */}
+    }
+    out.sort((a, b) => b.lastPlayed.compareTo(a.lastPlayed));
+    return out;
+  }
+
+  /// Delete a saved game slot.
+  static void deleteSavedGame(int id) => Storage.remove(_slotKey(id));
+
+  /// One-time migration of the old single-slot save (`game_v1`) to the new
+  /// per-game slots. Safe to call on every launch.
+  static void migrateLegacySave() {
+    final raw = Storage.getString(_legacyKey);
+    if (raw == null) return;
+    try {
+      final m = jsonDecode(raw) as Map<String, dynamic>;
+      final id = (m['gameId'] ?? 0) as int;
+      if (id != 0 && !hasSlot(id)) Storage.setString(_slotKey(id), raw);
+    } catch (_) {/* ignore */}
+    Storage.remove(_legacyKey);
+  }
+
+  /// Load the saved game [id] into this state. Returns false if missing/corrupt.
+  bool resumeGame(int id) {
+    final raw = Storage.getString(_slotKey(id));
     if (raw == null) return false;
     try {
       final m = jsonDecode(raw) as Map<String, dynamic>;
-      gameId = (m['gameId'] ?? 0) as int;
+      gameId = (m['gameId'] ?? id) as int;
       difficulty = Difficulty.values[m['difficulty'] as int];
       isDaily = (m['isDaily'] ?? false) as bool;
       dailyDateIso = m['dailyDateIso'] as String?;
       elapsed = Duration(seconds: (m['elapsed'] ?? 0) as int);
       hintsUsed = (m['hintsUsed'] ?? 0) as int;
       mistakesMade = (m['mistakesMade'] ?? 0) as int;
+      lastPlayed = (m['lastPlayed'] ?? 0) as int;
       solution = (m['solution'] as List).map((e) => e as int).toList();
       cells = [
         for (final c in (m['cells'] as List))
@@ -578,7 +665,7 @@ class GameState extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (_) {
-      Storage.remove(_saveKey);
+      Storage.remove(_slotKey(id));
       return false;
     }
   }

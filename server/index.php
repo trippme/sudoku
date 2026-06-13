@@ -393,7 +393,7 @@ function route_inbox(): void
         'SELECT id, from_email, from_name, game_id, message, seen, created_at
            FROM shares
           WHERE to_email = ?
-          ORDER BY created_at DESC
+          ORDER BY created_at DESC, id DESC
           LIMIT ' . $limit
     );
     $stmt->execute([$email]);

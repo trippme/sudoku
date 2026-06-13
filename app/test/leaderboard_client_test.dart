@@ -139,6 +139,42 @@ void main() {
     expect(ok, isTrue);
   });
 
+  test('notifyFinish posts the finisher payload', () async {
+    Map<String, dynamic>? body;
+    Uri? seen;
+    final lb = RemoteLeaderboard(base, client: MockClient((req) async {
+      seen = req.url;
+      body = jsonDecode(req.body) as Map<String, dynamic>;
+      return http.Response(jsonEncode({'ok': true, 'notified': 1}), 200);
+    }));
+    await lb.notifyFinish(
+        email: 'me@x.com', name: 'Me', gameId: 1234, seconds: 300, hints: 1);
+    expect(seen!.queryParameters['r'], 'finish');
+    expect(body!['email'], 'me@x.com');
+    expect(body!['gameId'], 1234);
+    expect(body!['seconds'], 300);
+  });
+
+  test('notifications parses competitor results', () async {
+    final lb = RemoteLeaderboard(base, client: MockClient((req) async {
+      return http.Response(
+        jsonEncode({
+          'ok': true,
+          'email': 'me@x.com',
+          'notifications': [
+            {'id': 3, 'from_email': 'sam@y.com', 'from_name': 'Sam', 'game_id': 1234, 'seconds': 250, 'hints': 0, 'seen': 0, 'created_at': '2026-06-13 06:00:00'},
+          ],
+        }),
+        200,
+      );
+    }));
+    final results = await lb.notifications('me@x.com');
+    expect(results.single.fromName, 'Sam');
+    expect(results.single.gameId, 1234);
+    expect(results.single.seconds, 250);
+    expect(results.single.seen, isFalse);
+  });
+
   test('inbox parses received games from the live JSON shape', () async {
     final lb = RemoteLeaderboard(base, client: MockClient((req) async {
       return http.Response(

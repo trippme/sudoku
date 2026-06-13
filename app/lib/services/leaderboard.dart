@@ -71,6 +71,40 @@ class ReceivedGame {
       );
 }
 
+/// A competitor finished a shared game — their result, sent to you.
+class CompetitorResult {
+  final int id;
+  final String fromName;
+  final String fromEmail;
+  final int gameId;
+  final int seconds;
+  final int hints;
+  final bool seen;
+  final String createdAt;
+
+  CompetitorResult({
+    required this.id,
+    required this.fromName,
+    required this.fromEmail,
+    required this.gameId,
+    required this.seconds,
+    required this.hints,
+    required this.seen,
+    required this.createdAt,
+  });
+
+  factory CompetitorResult.fromJson(Map<String, dynamic> m) => CompetitorResult(
+        id: (m['id'] ?? 0) as int,
+        fromName: (m['from_name'] ?? '') as String,
+        fromEmail: (m['from_email'] ?? '') as String,
+        gameId: (m['game_id'] ?? 0) as int,
+        seconds: (m['seconds'] ?? 0) as int,
+        hints: (m['hints'] ?? 0) as int,
+        seen: ((m['seen'] ?? 0) as int) != 0,
+        createdAt: (m['created_at'] ?? '') as String,
+      );
+}
+
 /// The app talks to this interface. Today it can be the offline [NullLeaderboard]
 /// or the [RemoteLeaderboard] pointed at the PHP backend (see /server).
 abstract class LeaderboardService {
@@ -108,6 +142,21 @@ abstract class LeaderboardService {
 
   /// Mark a received game as seen.
   Future<void> markSeen(int shareId, String email);
+
+  /// Notify the people you're competing with on [gameId] that you finished.
+  Future<void> notifyFinish({
+    required String email,
+    required String name,
+    required int gameId,
+    required int seconds,
+    required int hints,
+  });
+
+  /// Competitor results pushed to you (a friend finished a shared game).
+  Future<List<CompetitorResult>> notifications(String email, {int limit = 50});
+
+  /// Mark a competitor-result notification as seen.
+  Future<void> markNotificationSeen(int id, String email);
 }
 
 /// Offline no-op implementation: lets the app run with no backend configured.
@@ -148,6 +197,22 @@ class NullLeaderboard implements LeaderboardService {
 
   @override
   Future<void> markSeen(int shareId, String email) async {}
+
+  @override
+  Future<void> notifyFinish({
+    required String email,
+    required String name,
+    required int gameId,
+    required int seconds,
+    required int hints,
+  }) async {}
+
+  @override
+  Future<List<CompetitorResult>> notifications(String email, {int limit = 50}) async =>
+      const [];
+
+  @override
+  Future<void> markNotificationSeen(int id, String email) async {}
 }
 
 /// REST client for the PHP backend in `/server`.
@@ -294,6 +359,61 @@ class RemoteLeaderboard implements LeaderboardService {
             _uri('seen'),
             headers: _writeHeaders,
             body: jsonEncode({'id': shareId, 'email': email}),
+          )
+          .timeout(const Duration(seconds: 8));
+    } catch (_) {/* best effort */}
+  }
+
+  @override
+  Future<void> notifyFinish({
+    required String email,
+    required String name,
+    required int gameId,
+    required int seconds,
+    required int hints,
+  }) async {
+    try {
+      await _client
+          .post(
+            _uri('finish'),
+            headers: _writeHeaders,
+            body: jsonEncode({
+              'email': email,
+              'name': name,
+              'gameId': gameId,
+              'seconds': seconds,
+              'hints': hints,
+            }),
+          )
+          .timeout(const Duration(seconds: 8));
+    } catch (_) {/* best effort */}
+  }
+
+  @override
+  Future<List<CompetitorResult>> notifications(String email, {int limit = 50}) async {
+    try {
+      final res = await _client
+          .get(_uri('notifications', {'email': email, 'limit': '$limit'}))
+          .timeout(const Duration(seconds: 8));
+      if (res.statusCode != 200) return const [];
+      final m = jsonDecode(res.body) as Map<String, dynamic>;
+      final list = (m['notifications'] as List? ?? const []);
+      return list
+          .map((e) => CompetitorResult.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  @override
+  Future<void> markNotificationSeen(int id, String email) async {
+    try {
+      await _client
+          .post(
+            _uri('notif_seen'),
+            headers: _writeHeaders,
+            body: jsonEncode({'id': id, 'email': email}),
           )
           .timeout(const Duration(seconds: 8));
     } catch (_) {/* best effort */}

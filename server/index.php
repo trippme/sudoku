@@ -102,6 +102,20 @@ function init_schema(PDO $pdo): void
             )'
         );
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_shares_to ON shares(to_email)');
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                to_email TEXT NOT NULL,
+                from_email TEXT NOT NULL,
+                from_name TEXT NOT NULL DEFAULT "",
+                game_id INTEGER NOT NULL,
+                seconds INTEGER NOT NULL,
+                hints INTEGER NOT NULL DEFAULT 0,
+                seen INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL
+            )'
+        );
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_notif_to ON notifications(to_email)');
     } else {
         $pdo->exec(
             'CREATE TABLE IF NOT EXISTS results (
@@ -131,6 +145,20 @@ function init_schema(PDO $pdo): void
                 seen TINYINT NOT NULL DEFAULT 0,
                 created_at DATETIME NOT NULL,
                 INDEX idx_shares_to (to_email)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+        );
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS notifications (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                to_email VARCHAR(255) NOT NULL,
+                from_email VARCHAR(255) NOT NULL,
+                from_name VARCHAR(64) NOT NULL DEFAULT "",
+                game_id INT NOT NULL,
+                seconds INT NOT NULL,
+                hints INT NOT NULL DEFAULT 0,
+                seen TINYINT NOT NULL DEFAULT 0,
+                created_at DATETIME NOT NULL,
+                INDEX idx_notif_to (to_email)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
         );
     }
@@ -388,6 +416,98 @@ function route_seen(): void
     json_out(['ok' => true]);
 }
 
+function route_finish(): void
+{
+    require_write();
+    $in = body_json();
+
+    $email   = strtolower(trim((string)($in['email'] ?? '')));
+    $name    = trim((string)($in['name'] ?? ''));
+    $name    = function_exists('mb_substr') ? mb_substr($name, 0, 64) : substr($name, 0, 64);
+    $gameId  = filter_var($in['gameId'] ?? null, FILTER_VALIDATE_INT);
+    $seconds = filter_var($in['seconds'] ?? null, FILTER_VALIDATE_INT);
+    $hints   = max(0, (int)($in['hints'] ?? 0));
+
+    if (!valid_email($email)) {
+        fail('valid email required');
+    }
+    if ($gameId === false || $gameId === null) {
+        fail('gameId must be an integer');
+    }
+    if ($seconds === false || $seconds === null || $seconds < 1 || $seconds > 86400) {
+        fail('seconds out of range');
+    }
+
+    $pdo = db();
+
+    // Counterparties: everyone you have a share relationship with on this game.
+    $stmt = $pdo->prepare(
+        'SELECT from_email AS e FROM shares WHERE game_id = ? AND to_email = ?
+         UNION
+         SELECT to_email AS e FROM shares WHERE game_id = ? AND from_email = ?'
+    );
+    $stmt->execute([$gameId, $email, $gameId, $email]);
+    $others = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $e = strtolower(trim((string)$row['e']));
+        if ($e !== '' && $e !== $email) {
+            $others[$e] = true;
+        }
+    }
+
+    $now = gmdate('Y-m-d H:i:s');
+    // One notification per (recipient, sender, game): replace any prior one.
+    $del = $pdo->prepare('DELETE FROM notifications WHERE to_email = ? AND from_email = ? AND game_id = ?');
+    $ins = $pdo->prepare(
+        'INSERT INTO notifications (to_email, from_email, from_name, game_id, seconds, hints, seen, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, 0, ?)'
+    );
+    $count = 0;
+    foreach (array_keys($others) as $cp) {
+        $del->execute([$cp, $email, $gameId]);
+        $ins->execute([$cp, $email, $name, $gameId, $seconds, $hints, $now]);
+        $count++;
+    }
+
+    json_out(['ok' => true, 'notified' => $count]);
+}
+
+function route_notifications(): void
+{
+    $email = strtolower(trim((string)($_GET['email'] ?? '')));
+    if (!valid_email($email)) {
+        fail('valid email required');
+    }
+    $limit = (int)($_GET['limit'] ?? 50);
+    $limit = max(1, min(200, $limit));
+
+    $pdo = db();
+    $stmt = $pdo->prepare(
+        'SELECT id, from_email, from_name, game_id, seconds, hints, seen, created_at
+           FROM notifications
+          WHERE to_email = ?
+          ORDER BY created_at DESC, id DESC
+          LIMIT ' . $limit
+    );
+    $stmt->execute([$email]);
+    json_out(['ok' => true, 'email' => $email, 'notifications' => $stmt->fetchAll()]);
+}
+
+function route_notif_seen(): void
+{
+    require_write();
+    $in = body_json();
+    $email = strtolower(trim((string)($in['email'] ?? '')));
+    $id = filter_var($in['id'] ?? null, FILTER_VALIDATE_INT);
+    if (!valid_email($email) || $id === false || $id === null) {
+        fail('id and valid email required');
+    }
+    $pdo = db();
+    $stmt = $pdo->prepare('UPDATE notifications SET seen = 1 WHERE id = ? AND to_email = ?');
+    $stmt->execute([$id, $email]);
+    json_out(['ok' => true]);
+}
+
 // ---- dispatch --------------------------------------------------------------
 
 try {
@@ -416,6 +536,15 @@ try {
             break;
         case 'seen':
             route_seen();
+            break;
+        case 'finish':
+            route_finish();
+            break;
+        case 'notifications':
+            route_notifications();
+            break;
+        case 'notif_seen':
+            route_notif_seen();
             break;
         default:
             fail('unknown route: ' . $r, 404);

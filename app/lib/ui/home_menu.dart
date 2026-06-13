@@ -32,10 +32,12 @@ class _HomeMenuState extends State<HomeMenu> {
   Future<void> _refreshInbox() async {
     final profile = context.read<Profile>();
     if (!profile.hasIdentity) return;
-    final games = await context.read<LeaderboardService>().inbox(profile.email);
-    if (mounted) {
-      setState(() => _unseen = games.where((g) => !g.seen).length);
-    }
+    final svc = context.read<LeaderboardService>();
+    final games = await svc.inbox(profile.email);
+    final results = await svc.notifications(profile.email);
+    final unseen = games.where((g) => !g.seen).length +
+        results.where((r) => !r.seen).length;
+    if (mounted) setState(() => _unseen = unseen);
   }
 
   static String _fmt(int seconds) {

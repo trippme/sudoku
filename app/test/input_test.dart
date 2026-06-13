@@ -173,7 +173,7 @@ void main() {
     });
   });
 
-  group('multiple in-progress games (issue #1 ideal)', () {
+  group('one game per difficulty (issue #1 revised)', () {
     GameState fresh() => GameState(
           settings: Settings(),
           stats: Stats.load(),
@@ -181,55 +181,66 @@ void main() {
           leaderboard: NullLeaderboard(),
         );
 
+    void play(GameState g) {
+      final cell = g.cells.indexWhere((c) => !c.given);
+      g.pressDigit(g.solution[cell]);
+      g.pressCell(cell);
+    }
+
     test('a fresh game is not saved; a move creates a resumable slot', () {
       final g = makeGame(InputMode.hybrid);
       expect(g.hasProgress, isFalse);
       expect(GameState.listSavedGames(), isEmpty);
 
-      final cell = firstEmpty(g);
-      g.pressDigit(5);
-      g.pressCell(cell);
+      play(g);
 
       expect(g.hasProgress, isTrue);
       final list = GameState.listSavedGames();
       expect(list.length, 1);
       expect(list.first.gameId, g.gameId);
+      expect(list.first.category, 'd${Difficulty.easy.index}');
     });
 
-    test('two games persist independently and can both be resumed', () {
-      // Game A: play easy, make a move.
+    test('different difficulties persist independently and both resume', () {
       final a = fresh()..newGame(Difficulty.easy);
       final aId = a.gameId;
       final aCell = a.cells.indexWhere((c) => !c.given);
       a.pressDigit(a.solution[aCell]);
       a.pressCell(aCell);
 
-      // Game B: a different number, make a move.
       final b = fresh()..newGame(Difficulty.medium);
-      final bId = b.gameId;
-      expect(bId, isNot(aId));
-      final bCell = b.cells.indexWhere((c) => !c.given);
-      b.pressDigit(b.solution[bCell]);
-      b.pressCell(bCell);
+      play(b);
 
-      // Both are in the saved list.
-      final ids = GameState.listSavedGames().map((g) => g.gameId).toSet();
-      expect(ids.containsAll({aId, bId}), isTrue);
+      final cats = GameState.listSavedGames().map((g) => g.category).toSet();
+      expect(cats.containsAll({'d0', 'd1'}), isTrue);
 
-      // Resume A in a fresh state and confirm its move is there.
       final resumed = fresh();
-      expect(resumed.resumeGame(aId), isTrue);
+      expect(resumed.resumeSlot('d0'), isTrue);
       expect(resumed.gameId, aId);
       expect(resumed.cells[aCell].value, a.solution[aCell]);
     });
 
+    test('only one game is kept per difficulty (new replaces old)', () {
+      final g = fresh()..newGame(Difficulty.easy);
+      play(g);
+      final firstId = g.gameId;
+
+      g.newGame(Difficulty.easy); // same band → replaces
+      play(g);
+      final secondId = g.gameId;
+      expect(secondId, isNot(firstId));
+
+      final easy =
+          GameState.listSavedGames().where((s) => s.category == 'd0').toList();
+      expect(easy.length, 1);
+      expect(easy.single.gameId, secondId);
+    });
+
     test('deleting a slot removes it from the list', () {
       final g = makeGame(InputMode.hybrid);
-      final cell = firstEmpty(g);
-      g.pressDigit(5);
-      g.pressCell(cell);
+      play(g);
       expect(GameState.listSavedGames(), isNotEmpty);
-      GameState.deleteSavedGame(g.gameId);
+      GameState.deleteSlot('d${Difficulty.easy.index}');
       expect(GameState.listSavedGames(), isEmpty);
     });
   });

@@ -267,7 +267,6 @@ class _InProgressTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final empties = 81 - summary.givenCount;
     return Card(
       color: const Color(0xFFE7F0FB),
       margin: const EdgeInsets.symmetric(vertical: 4),
@@ -278,9 +277,7 @@ class _InProgressTile extends StatelessWidget {
           '${summary.isDaily ? 'Daily · ' : ''}${summary.difficulty.label}',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        subtitle: Text(
-          '#${summary.gameId} · $timeText · ${summary.filledCount}/$empties filled',
-        ),
+        subtitle: Text('#${summary.gameId} · $timeText'),
         trailing: IconButton(
           icon: const Icon(Icons.delete_outline),
           tooltip: 'Discard this game',

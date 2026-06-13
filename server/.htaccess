@@ -1,0 +1,11 @@
+# Block direct web access to the SQLite database files, wherever they sit.
+<FilesMatch "\.(sqlite|sqlite3|db)$">
+    # Apache 2.4
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    # Apache 2.2
+    <IfModule !mod_authz_core.c>
+        Deny from all
+    </IfModule>
+</FilesMatch>

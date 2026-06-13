@@ -30,7 +30,8 @@ Repo: https://github.com/trippme/sudoku
 │   │   │   ├── game_screen.dart      settings_screen.dart  stats_screen.dart
 │   │   └── main.dart
 │   └── test/                 # engine, input-model, and daily tests
-├── docs/backend.md           # optional thin-backend API spec
+├── server/                   # optional no-auth PHP backend (leaderboard etc.)
+├── docs/backend.md           # backend design notes
 ├── webplay.html              # original web UI (reference)
 ├── webplay/                  # original Sudoku.js (minified) + Sudoku.css
 ├── images/                   # original art assets (reference)
@@ -116,14 +117,21 @@ server for:
 `app/lib/engine/hint_engine.dart` reuses the same techniques to produce
 explained, structured hints (placements and candidate eliminations).
 
-## Optional thin backend
+## Optional backend (leaderboard, friends, history)
 
-The app needs no backend. An **optional** one adds only cross-device features
-(a shared daily leaderboard and feedback). The client already speaks to it via
-`lib/services/leaderboard.dart` (`RemoteLeaderboard`); today it runs against a
-no-op local implementation. The API contract and suggested implementations
-(Supabase / Firebase / Cloudflare Workers / a tiny Node service) are documented
-in [`docs/backend.md`](docs/backend.md).
+The app needs no backend to play. An **optional** one adds cross-device social
+features: a shared leaderboard, friend competition on the same game number,
+sharing a game, and per-player history synced by email (no login).
+
+Because puzzles are deterministic from their game number, the server stores
+**only results** — never puzzles or board state — so it's tiny and free to host.
+A ready-to-deploy implementation lives in [`server/`](server): a no-auth **PHP**
+API (SQLite by default, MySQL optional) for ordinary web hosting. The client
+already speaks its contract via `lib/services/leaderboard.dart`
+(`RemoteLeaderboard`, currently swapped out for a no-op `NullLeaderboard`).
+
+See [`server/README.md`](server/README.md) to deploy and
+[`docs/backend.md`](docs/backend.md) for the design.
 
 ## Recovered original server protocol (reference)
 

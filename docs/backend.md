@@ -1,58 +1,76 @@
-# Optional thin backend (daily leaderboard + feedback)
+# Backend (leaderboard, friend competition, history)
 
 The app is **fully playable offline** — generation, solving, hints, rating,
-stats, and the daily puzzle all run on-device. This backend is optional and only
-adds **cross-device features**: a shared daily leaderboard and feedback.
+stats, and the daily puzzle all run on-device. The backend is optional and only
+adds **cross-device social features**: a shared leaderboard, friend
+competition, sharing a game by number, and per-player history synced by email.
 
-The client already speaks to it through `lib/services/leaderboard.dart`
-(`RemoteLeaderboard`). To turn it on, construct `RemoteLeaderboard('<baseUrl>')`
-and provide it where `NullLeaderboard` is used today.
+The implementation lives in [`/server`](../server) — a small **no-auth PHP API**
+(SQLite by default, MySQL optional) meant to run on ordinary web hosting at no
+extra cost. See [`server/README.md`](../server/README.md) for deploy steps.
 
-## API contract
+## Why this is cheap
 
-The daily puzzle is **deterministic by date** (same puzzle for everyone), so the
-backend only needs to store and rank times — it never generates puzzles.
+Puzzles are **deterministic from their game number** (the seed). "Game #1234"
+is the same puzzle for everyone and is generated on-device, so the server never
+stores puzzles or board state — only finished **results**. That's one small row
+per game per player. No Firebase needed.
 
-### `POST /daily`
-Submit a completed daily time.
+Ranking everywhere: **fewest hints, then fastest time.**
 
-```json
-// request body
-{ "name": "Tripp", "seconds": 312, "difficulty": 2, "date": "2026-06-11" }
-```
-Response: `200/201` on success. Server should validate `seconds > 0` and a
-sane date, and may rate-limit by IP/device.
+## Data model (one table)
 
-### `GET /daily?date=YYYY-MM-DD&limit=20`
-Return the fastest times for that date, ascending by `seconds`.
+`results(game_id, email, name, seconds, hints, mistakes, difficulty, tries, finished_at)`
+with a unique `(game_id, email)` — each player's best per game.
 
-```json
-[
-  { "name": "Ana",   "seconds": 188, "date": "2026-06-11" },
-  { "name": "Tripp", "seconds": 312, "date": "2026-06-11" }
-]
-```
+## API
 
-### `POST /feedback` (optional, replaces the old feedback form)
-```json
-{ "text": "Love the app!", "version": "1.0.0" }
-```
+Base URL is the folder the API lives in, e.g. `https://yourhost/sudoku`.
+Routes are passed as `?r=`:
 
-## Suggested implementations
+| Route | Method | Params | Purpose |
+|---|---|---|---|
+| `?r=health` | GET | — | Liveness check |
+| `?r=result` | POST | JSON `{gameId,email,name,seconds,hints,mistakes,difficulty}` | Submit a finished game |
+| `?r=leaderboard` | GET | `game`, `limit` | Global top times (display names only) |
+| `?r=friends` | GET | `game`, `emails` (comma list) | Results for specific friends |
+| `?r=player` | GET | `email`, `limit` | One player's history |
 
-Any of these satisfies the contract; pick what you already use:
+The full request/response shapes and `curl` examples are in
+[`server/README.md`](../server/README.md).
 
-- **Supabase** — a `daily_times` table (`name, seconds, difficulty, date`) plus
-  two PostgREST/Edge-Function routes. Fastest to stand up; has a free tier.
-- **Firebase** — Firestore collection `daily/{date}/times` + a Cloud Function,
-  or Firestore security rules enforcing the shape.
-- **Cloudflare Workers + D1 / KV** — a tiny Worker implementing the two routes;
-  cheap and globally fast.
-- **A 50-line Node/Express + SQLite service** — if you want to self-host.
+## Client wiring
 
-## Why not recreate the original 2010 server?
+`app/lib/services/leaderboard.dart` already speaks this contract:
 
-The original server also generated puzzles, served puzzle-of-the-day, and ran
-the hint/solver brain (see the protocol table in the root `README.md`). All of
-that is now on-device, so the backend's remaining job is just shared
-leaderboards/feedback — a much smaller, stateless surface.
+- `NullLeaderboard` — offline no-op (default; the app runs with no backend).
+- `RemoteLeaderboard('https://yourhost/sudoku')` — the live client. Pass an
+  `apiKey` too if the server sets one.
+
+Switch the app over by constructing `RemoteLeaderboard(<baseUrl>)` where the app
+currently uses `NullLeaderboard`.
+
+## Feature mapping
+
+- **Leaderboard** → `?r=leaderboard&game=<id>`.
+- **Save your info (just email)** → results are keyed by email; `?r=player`
+  returns your history to sync across devices.
+- **Friend competition** → both submit for the same `game_id`; the app calls
+  `?r=friends&game=<id>&emails=…` and shows you side by side.
+- **Share "I'm stuck on #1234"** → share the number + a deep link; the friend
+  opens the same deterministic puzzle and the app can show how each is doing.
+
+## Privacy / auth
+
+No login by design. Emails are never shown on the public leaderboard (display
+name only); they're returned only to friend lookups, where both sides already
+know each other's address. An optional `API_KEY` (server `config.php`) can gate
+submissions behind a shared key if you want to deter random writes.
+
+## Still on the client side (next steps)
+
+To light these features up in the app:
+- Capture a display name + email once (no password).
+- Count hints and mistakes during a game (for submission/ranking).
+- "Play game by number" + "Share game" (the engine already generates by seed).
+- A leaderboard / friends screen, and submit-on-completion.

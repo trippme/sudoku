@@ -1,0 +1,4 @@
+# Never commit the live database.
+*.sqlite
+*.sqlite3
+*.db

@@ -10,8 +10,96 @@ import 'control_pad.dart';
 import 'leaderboard_screen.dart';
 import 'settings_screen.dart';
 
-class GameScreen extends StatelessWidget {
+class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
+
+  @override
+  State<GameScreen> createState() => _GameScreenState();
+}
+
+class _GameScreenState extends State<GameScreen> {
+  GameState? _game;
+  bool _completionShown = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final g = context.read<GameState>();
+    if (g != _game) {
+      _game?.removeListener(_onGameChanged);
+      _game = g;
+      _game!.addListener(_onGameChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    _game?.removeListener(_onGameChanged);
+    super.dispose();
+  }
+
+  // Show the completion popup once, when the game becomes solved.
+  void _onGameChanged() {
+    if ((_game?.isSolved ?? false) && !_completionShown) {
+      _completionShown = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showCompletion();
+      });
+    }
+  }
+
+  Widget _statRow(String label, String value) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: const TextStyle(fontSize: 16)),
+            Text(value,
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      );
+
+  Future<void> _showCompletion() async {
+    await showDialog<void>(
+      context: context,
+      builder: (dctx) => Consumer<GameState>(
+        builder: (_, g, _) => AlertDialog(
+          title: const Text('🎉 Solved!'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                '${g.isDaily ? 'Daily · ' : ''}${g.difficulty.label} · Game #${g.gameId}',
+                style: const TextStyle(color: Colors.black54),
+              ),
+              const SizedBox(height: 12),
+              _statRow('Time', _fmt(g.elapsed)),
+              _statRow('Hints used', '${g.hintsUsed}'),
+              _statRow('Mistakes', '${g.mistakesMade}'),
+              if (g.lastOutcome != null)
+                _statRow('Rank', '${g.lastOutcome!.rank} of ${g.lastOutcome!.total}'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dctx); // close dialog
+                Navigator.pop(context); // back to menu
+              },
+              child: const Text('Back to menu'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dctx),
+              child: const Text('Done'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   String _fmt(Duration d) {
     final m = d.inMinutes.toString();

@@ -12,6 +12,7 @@ import 'ui/home_menu.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Storage.init();
+  GameState.migrateLegacySave(); // one-time: old single save → per-game slot
   runApp(const SudokuApp());
 }
 

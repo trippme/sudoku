@@ -173,16 +173,64 @@ void main() {
     });
   });
 
-  group('abandon-protection (issue #1)', () {
-    test('a fresh game has no progress; a move makes it progress', () {
+  group('multiple in-progress games (issue #1 ideal)', () {
+    GameState fresh() => GameState(
+          settings: Settings(),
+          stats: Stats.load(),
+          profile: Profile(),
+          leaderboard: NullLeaderboard(),
+        );
+
+    test('a fresh game is not saved; a move creates a resumable slot', () {
       final g = makeGame(InputMode.hybrid);
-      // Just started, no user moves yet → nothing to protect.
-      expect(GameState.savedGameHasProgress(), isFalse);
-      // Make a move → now there is progress worth confirming before discarding.
+      expect(g.hasProgress, isFalse);
+      expect(GameState.listSavedGames(), isEmpty);
+
       final cell = firstEmpty(g);
       g.pressDigit(5);
       g.pressCell(cell);
-      expect(GameState.savedGameHasProgress(), isTrue);
+
+      expect(g.hasProgress, isTrue);
+      final list = GameState.listSavedGames();
+      expect(list.length, 1);
+      expect(list.first.gameId, g.gameId);
+    });
+
+    test('two games persist independently and can both be resumed', () {
+      // Game A: play easy, make a move.
+      final a = fresh()..newGame(Difficulty.easy);
+      final aId = a.gameId;
+      final aCell = a.cells.indexWhere((c) => !c.given);
+      a.pressDigit(a.solution[aCell]);
+      a.pressCell(aCell);
+
+      // Game B: a different number, make a move.
+      final b = fresh()..newGame(Difficulty.medium);
+      final bId = b.gameId;
+      expect(bId, isNot(aId));
+      final bCell = b.cells.indexWhere((c) => !c.given);
+      b.pressDigit(b.solution[bCell]);
+      b.pressCell(bCell);
+
+      // Both are in the saved list.
+      final ids = GameState.listSavedGames().map((g) => g.gameId).toSet();
+      expect(ids.containsAll({aId, bId}), isTrue);
+
+      // Resume A in a fresh state and confirm its move is there.
+      final resumed = fresh();
+      expect(resumed.resumeGame(aId), isTrue);
+      expect(resumed.gameId, aId);
+      expect(resumed.cells[aCell].value, a.solution[aCell]);
+    });
+
+    test('deleting a slot removes it from the list', () {
+      final g = makeGame(InputMode.hybrid);
+      final cell = firstEmpty(g);
+      g.pressDigit(5);
+      g.pressCell(cell);
+      expect(GameState.listSavedGames(), isNotEmpty);
+      GameState.deleteSavedGame(g.gameId);
+      expect(GameState.listSavedGames(), isEmpty);
     });
   });
 

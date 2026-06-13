@@ -34,6 +34,7 @@ class _Snapshot {
 
 /// A lightweight summary of a saved, in-progress game (for the menu list).
 class SavedGameSummary {
+  final String category; // slot key suffix: 'd0'..'d3' or 'daily'
   final int gameId;
   final Difficulty difficulty;
   final bool isDaily;
@@ -43,6 +44,7 @@ class SavedGameSummary {
   final int lastPlayed; // epoch millis, for sorting
 
   SavedGameSummary({
+    required this.category,
     required this.gameId,
     required this.difficulty,
     required this.isDaily,
@@ -54,13 +56,22 @@ class SavedGameSummary {
 }
 
 class GameState extends ChangeNotifier {
-  // Each in-progress game is stored under "game_<gameId>". A game becomes a
-  // persisted slot only once it has progress, so untouched games don't pile up.
+  // We keep at most one in-progress game per difficulty band, plus one daily —
+  // so saved games are stored by *category* ("d0".."d3" or "daily"), not by
+  // game number. Starting a new game in a band that already has one replaces it
+  // (the menu confirms first). A game is saved only once it has progress.
   static const _keyPrefix = 'game_';
   static const _legacyKey = 'game_v1';
-  static const _maxSlots = 24;
 
-  static String _slotKey(int id) => '$_keyPrefix$id';
+  static String _catKey(String category) => '$_keyPrefix$category';
+
+  /// The category a game belongs to: its daily slot, or its difficulty band.
+  static String categoryFor({required bool isDaily, required Difficulty d}) =>
+      isDaily ? 'daily' : 'd${d.index}';
+
+  /// The difficulty band of a game number (deterministic, no generation).
+  static Difficulty bandOf(int gameId) =>
+      Difficulty.values[gameId % Difficulty.values.length];
 
   final SudokuEngine engine = SudokuEngine();
   final Settings settings;
@@ -145,29 +156,32 @@ class GameState extends ChangeNotifier {
   // ---- Game lifecycle ---------------------------------------------------
 
   void newGame(Difficulty d) {
+    // Always a fresh game in band [d], replacing any existing one there
+    // (the menu confirms before calling this when that band is occupied).
     final id = GameCatalog.randomGameId(d);
-    final puzzle = GameCatalog.puzzleForGame(id);
-    _install(id, puzzle, daily: false, dailyIso: null);
-    stats.recordStart(puzzle.difficulty);
+    _install(id, GameCatalog.puzzleForGame(id), daily: false, dailyIso: null);
+    stats.recordStart(difficulty);
   }
 
   /// Start the deterministic daily puzzle for [date] — resuming saved progress
-  /// on it if you've already begun it.
+  /// on today's daily if you've already begun it, else starting it fresh.
   void startDaily(DateTime date) {
     final id = GameCatalog.dailyGameId(date);
-    if (hasSlot(id) && resumeGame(id)) return;
-    final puzzle = GameCatalog.puzzleForGame(id);
-    _install(id, puzzle, daily: true, dailyIso: Stats.isoDate(date));
-    stats.recordStart(puzzle.difficulty);
+    final saved = savedSlot('daily');
+    if (saved != null && saved.gameId == id && resumeSlot('daily')) return;
+    _install(id, GameCatalog.puzzleForGame(id),
+        daily: true, dailyIso: Stats.isoDate(date));
+    stats.recordStart(difficulty);
   }
 
-  /// Start a specific game by its number (for "play by number" and shared
-  /// games). Resumes saved progress on that number if any exists.
+  /// Start a specific game by its number (Play by Number / shared games).
+  /// Resumes if that exact number is the one already saved in its band.
   void playGame(int id) {
-    if (hasSlot(id) && resumeGame(id)) return;
-    final puzzle = GameCatalog.puzzleForGame(id);
-    _install(id, puzzle, daily: false, dailyIso: null);
-    stats.recordStart(puzzle.difficulty);
+    final cat = categoryFor(isDaily: false, d: bandOf(id));
+    final saved = savedSlot(cat);
+    if (saved != null && saved.gameId == id && resumeSlot(cat)) return;
+    _install(id, GameCatalog.puzzleForGame(id), daily: false, dailyIso: null);
+    stats.recordStart(difficulty);
   }
 
   void _install(
@@ -179,10 +193,14 @@ class GameState extends ChangeNotifier {
     final givens = puzzle.givens;
     final sol = puzzle.solution;
     gameId = id;
-    difficulty = puzzle.difficulty;
+    // Difficulty (and slot category) come from the number's band, so they're
+    // consistent everywhere without depending on the rater.
+    difficulty = bandOf(id);
     solution = sol;
     isDaily = daily;
     dailyDateIso = dailyIso;
+    // Starting fresh in this category discards whatever was there.
+    Storage.remove(_catKey(categoryFor(isDaily: daily, d: difficulty)));
     hintsUsed = 0;
     mistakesMade = 0;
     lastPlayed = 0;
@@ -503,7 +521,8 @@ class GameState extends ChangeNotifier {
         now: DateTime.now(),
       );
       _submitResult();
-      Storage.remove(_slotKey(gameId)); // finished game leaves the in-progress list
+      // finished game leaves the in-progress list
+      Storage.remove(_catKey(categoryFor(isDaily: isDaily, d: difficulty)));
     }
   }
 
@@ -548,89 +567,96 @@ class GameState extends ChangeNotifier {
         ],
       });
 
-  /// Persist the active game to its own slot — but only once it has progress,
-  /// so untouched games never clutter the in-progress list.
+  /// Persist the active game to its category slot — but only once it has
+  /// progress, so untouched games never clutter the in-progress list.
   void _save() {
     if (_solved || gameId == 0) return;
-    final key = _slotKey(gameId);
+    final key = _catKey(categoryFor(isDaily: isDaily, d: difficulty));
     if (!hasProgress) {
       Storage.remove(key);
       return;
     }
     lastPlayed = DateTime.now().millisecondsSinceEpoch;
     Storage.setString(key, _encode());
-    _pruneSlots();
   }
 
   void _saveLight() => _save();
 
-  /// Keep at most [_maxSlots] in-progress games, dropping the oldest.
-  static void _pruneSlots() {
-    final games = listSavedGames();
-    if (games.length <= _maxSlots) return;
-    for (final g in games.sublist(_maxSlots)) {
-      Storage.remove(_slotKey(g.gameId));
+  static SavedGameSummary? _decode(String category, String raw) {
+    try {
+      final m = jsonDecode(raw) as Map<String, dynamic>;
+      var filled = 0, givens = 0;
+      for (final c in (m['cells'] as List)) {
+        if (c['g'] as bool) {
+          givens++;
+        } else if ((c['v'] as int) != 0) {
+          filled++;
+        }
+      }
+      return SavedGameSummary(
+        category: category,
+        gameId: (m['gameId'] ?? 0) as int,
+        difficulty: Difficulty.values[m['difficulty'] as int],
+        isDaily: (m['isDaily'] ?? false) as bool,
+        elapsedSeconds: (m['elapsed'] ?? 0) as int,
+        filledCount: filled,
+        givenCount: givens,
+        lastPlayed: (m['lastPlayed'] ?? 0) as int,
+      );
+    } catch (_) {
+      return null;
     }
   }
 
-  /// True if an in-progress slot exists for [id].
-  static bool hasSlot(int id) => Storage.getString(_slotKey(id)) != null;
+  /// Summary of the saved game in [category], or null if none.
+  static SavedGameSummary? savedSlot(String category) {
+    final raw = Storage.getString(_catKey(category));
+    return raw == null ? null : _decode(category, raw);
+  }
 
-  /// All saved in-progress games, newest first.
+  /// All saved in-progress games (at most one per band + daily), newest first.
   static List<SavedGameSummary> listSavedGames() {
     final out = <SavedGameSummary>[];
     for (final key in Storage.getKeys()) {
       if (!key.startsWith(_keyPrefix) || key == _legacyKey) continue;
       final raw = Storage.getString(key);
       if (raw == null) continue;
-      try {
-        final m = jsonDecode(raw) as Map<String, dynamic>;
-        var filled = 0, givens = 0;
-        for (final c in (m['cells'] as List)) {
-          if (c['g'] as bool) {
-            givens++;
-          } else if ((c['v'] as int) != 0) {
-            filled++;
-          }
-        }
-        out.add(SavedGameSummary(
-          gameId: (m['gameId'] ?? 0) as int,
-          difficulty: Difficulty.values[m['difficulty'] as int],
-          isDaily: (m['isDaily'] ?? false) as bool,
-          elapsedSeconds: (m['elapsed'] ?? 0) as int,
-          filledCount: filled,
-          givenCount: givens,
-          lastPlayed: (m['lastPlayed'] ?? 0) as int,
-        ));
-      } catch (_) {/* skip corrupt slot */}
+      final s = _decode(key.substring(_keyPrefix.length), raw);
+      if (s != null) out.add(s);
     }
     out.sort((a, b) => b.lastPlayed.compareTo(a.lastPlayed));
     return out;
   }
 
-  /// Delete a saved game slot.
-  static void deleteSavedGame(int id) => Storage.remove(_slotKey(id));
+  /// Delete the saved game in [category].
+  static void deleteSlot(String category) => Storage.remove(_catKey(category));
 
-  /// One-time migration of the old single-slot save (`game_v1`) to the new
-  /// per-game slots. Safe to call on every launch.
+  /// One-time migration of the old single-slot save (`game_v1`) into its
+  /// category slot. Safe to call on every launch.
   static void migrateLegacySave() {
     final raw = Storage.getString(_legacyKey);
-    if (raw == null) return;
-    try {
-      final m = jsonDecode(raw) as Map<String, dynamic>;
-      final id = (m['gameId'] ?? 0) as int;
-      if (id != 0 && !hasSlot(id)) Storage.setString(_slotKey(id), raw);
-    } catch (_) {/* ignore */}
-    Storage.remove(_legacyKey);
+    if (raw != null) {
+      try {
+        final m = jsonDecode(raw) as Map<String, dynamic>;
+        final id = (m['gameId'] ?? 0) as int;
+        final daily = (m['isDaily'] ?? false) as bool;
+        final cat = categoryFor(isDaily: daily, d: bandOf(id));
+        if (id != 0 && savedSlot(cat) == null) {
+          Storage.setString(_catKey(cat), raw);
+        }
+      } catch (_) {/* ignore */}
+      Storage.remove(_legacyKey);
+    }
   }
 
-  /// Load the saved game [id] into this state. Returns false if missing/corrupt.
-  bool resumeGame(int id) {
-    final raw = Storage.getString(_slotKey(id));
+  /// Load the saved game in [category] into this state. Returns false if
+  /// missing/corrupt.
+  bool resumeSlot(String category) {
+    final raw = Storage.getString(_catKey(category));
     if (raw == null) return false;
     try {
       final m = jsonDecode(raw) as Map<String, dynamic>;
-      gameId = (m['gameId'] ?? id) as int;
+      gameId = (m['gameId'] ?? 0) as int;
       difficulty = Difficulty.values[m['difficulty'] as int];
       isDaily = (m['isDaily'] ?? false) as bool;
       dailyDateIso = m['dailyDateIso'] as String?;
@@ -665,7 +691,7 @@ class GameState extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (_) {
-      Storage.remove(_slotKey(id));
+      Storage.remove(_catKey(category));
       return false;
     }
   }

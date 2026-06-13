@@ -35,6 +35,39 @@ class _HomeMenuState extends State<HomeMenu> {
     _open(const GameScreen());
   }
 
+  /// Confirms replacing an in-progress game (only one is kept per difficulty).
+  Future<bool> _confirmReplace(String label) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Replace your $label game?'),
+        content: Text(
+          'You already have a $label game in progress, and only one game per '
+          'difficulty is kept. Starting a new one will discard it.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep playing'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Discard & start'),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
+  }
+
+  /// Start a brand-new game in [d]'s band, confirming first if one's in flight.
+  Future<void> _newGame(Difficulty d) async {
+    if (GameState.savedSlot('d${d.index}') != null) {
+      if (!await _confirmReplace(d.label) || !mounted) return;
+    }
+    _startNew(() => context.read<GameState>().newGame(d));
+  }
+
   Future<void> _playByNumber() async {
     final controller = TextEditingController();
     final number = await showDialog<int>(
@@ -66,11 +99,27 @@ class _HomeMenuState extends State<HomeMenu> {
       ),
     );
     if (number == null || !mounted) return;
+    // Playing a number lands in its difficulty band; confirm if that band is
+    // occupied by a *different* game.
+    final band = GameState.bandOf(number);
+    final saved = GameState.savedSlot('d${band.index}');
+    if (saved != null && saved.gameId != number) {
+      if (!await _confirmReplace(band.label) || !mounted) return;
+    }
     _startNew(() => context.read<GameState>().playGame(number));
   }
 
-  void _delete(int id) {
-    GameState.deleteSavedGame(id);
+  Future<void> _daily(DateTime today) async {
+    final id = GameCatalog.dailyGameId(today);
+    final saved = GameState.savedSlot('daily');
+    if (saved != null && saved.gameId != id) {
+      if (!await _confirmReplace('daily') || !mounted) return;
+    }
+    _startNew(() => context.read<GameState>().startDaily(today));
+  }
+
+  void _delete(String category) {
+    GameState.deleteSlot(category);
     setState(() {});
   }
 
@@ -116,9 +165,9 @@ class _HomeMenuState extends State<HomeMenu> {
                       summary: g,
                       timeText: _fmt(g.elapsedSeconds),
                       onResume: () => _startNew(
-                        () => context.read<GameState>().resumeGame(g.gameId),
+                        () => context.read<GameState>().resumeSlot(g.category),
                       ),
-                      onDelete: () => _delete(g.gameId),
+                      onDelete: () => _delete(g.category),
                     ),
                   const SizedBox(height: 12),
                 ],
@@ -128,9 +177,7 @@ class _HomeMenuState extends State<HomeMenu> {
                   label: dailyDone
                       ? 'Daily Puzzle ✓ (${GameCatalog.dailyDifficultyFor(today).label})'
                       : 'Daily Puzzle (${GameCatalog.dailyDifficultyFor(today).label})',
-                  onTap: () => _startNew(
-                    () => context.read<GameState>().startDaily(today),
-                  ),
+                  onTap: () => _daily(today),
                 ),
                 _MenuButton(
                   icon: Icons.tag,
@@ -144,8 +191,7 @@ class _HomeMenuState extends State<HomeMenu> {
                   _MenuButton(
                     icon: Icons.grid_on,
                     label: d.label,
-                    onTap: () =>
-                        _startNew(() => context.read<GameState>().newGame(d)),
+                    onTap: () => _newGame(d),
                   ),
 
                 const SizedBox(height: 16),

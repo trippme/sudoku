@@ -52,6 +52,9 @@ All responses are JSON with an `ok` boolean. Pass the route as `?r=`.
 | `?r=leaderboard` | GET | `game`, `limit` | Global top times for a game (names only) |
 | `?r=friends` | GET | `game`, `emails` (comma list) | Results for specific friends |
 | `?r=player` | GET | `email`, `limit` | One player's history (cloud sync) |
+| `?r=share` | POST | JSON `{fromEmail,fromName,toEmail,gameId,message}` | Send a game to a friend's inbox |
+| `?r=inbox` | GET | `email`, `limit` | Games sent to you (newest first) |
+| `?r=seen` | POST | JSON `{id,email}` | Mark a received game as seen |
 
 **POST `?r=result`** body:
 ```json
@@ -79,6 +82,19 @@ Returns `{ok, improved, rank, total}`.
 includes `email` (friends share emails).
 
 **GET `?r=player&email=you@x.com`** → that player's recent results across games.
+
+**POST `?r=share`** body `{fromEmail, fromName, toEmail, gameId, message}` →
+`{ok}`. Drops a game into `toEmail`'s inbox.
+
+**GET `?r=inbox&email=you@x.com`** →
+```json
+{ "ok": true, "email": "you@x.com", "shares": [
+  { "id": 7, "from_email": "sam@y.com", "from_name": "Sam", "game_id": 1234,
+    "message": "beat this", "seen": 0, "created_at": "2026-06-13 05:00:00" }
+]}
+```
+
+**POST `?r=seen`** body `{id, email}` → `{ok}`. Marks that received game read.
 
 ## Test it (curl)
 

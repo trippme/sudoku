@@ -89,6 +89,19 @@ function init_schema(PDO $pdo): void
                 UNIQUE(game_id, email)
             )'
         );
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS shares (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                from_email TEXT NOT NULL,
+                from_name TEXT NOT NULL DEFAULT "",
+                to_email TEXT NOT NULL,
+                game_id INTEGER NOT NULL,
+                message TEXT NOT NULL DEFAULT "",
+                seen INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL
+            )'
+        );
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_shares_to ON shares(to_email)');
     } else {
         $pdo->exec(
             'CREATE TABLE IF NOT EXISTS results (
@@ -105,6 +118,19 @@ function init_schema(PDO $pdo): void
                 UNIQUE KEY uniq_game_email (game_id, email),
                 INDEX idx_game (game_id),
                 INDEX idx_email (email)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+        );
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS shares (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                from_email VARCHAR(255) NOT NULL,
+                from_name VARCHAR(64) NOT NULL DEFAULT "",
+                to_email VARCHAR(255) NOT NULL,
+                game_id INT NOT NULL,
+                message VARCHAR(280) NOT NULL DEFAULT "",
+                seen TINYINT NOT NULL DEFAULT 0,
+                created_at DATETIME NOT NULL,
+                INDEX idx_shares_to (to_email)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
         );
     }
@@ -292,6 +318,76 @@ function route_player(): void
     json_out(['ok' => true, 'email' => $email, 'results' => $stmt->fetchAll()]);
 }
 
+function route_share(): void
+{
+    require_write();
+    $in = body_json();
+
+    $fromEmail = strtolower(trim((string)($in['fromEmail'] ?? '')));
+    $toEmail   = strtolower(trim((string)($in['toEmail'] ?? '')));
+    $fromName  = trim((string)($in['fromName'] ?? ''));
+    $message   = trim((string)($in['message'] ?? ''));
+    $gameId    = filter_var($in['gameId'] ?? null, FILTER_VALIDATE_INT);
+
+    $clip = function (string $s, int $n): string {
+        return function_exists('mb_substr') ? mb_substr($s, 0, $n) : substr($s, 0, $n);
+    };
+    $fromName = $clip($fromName, 64);
+    $message  = $clip($message, 280);
+
+    if (!valid_email($fromEmail) || !valid_email($toEmail)) {
+        fail('valid fromEmail and toEmail required');
+    }
+    if ($gameId === false || $gameId === null) {
+        fail('gameId must be an integer');
+    }
+
+    $pdo = db();
+    $stmt = $pdo->prepare(
+        'INSERT INTO shares (from_email, from_name, to_email, game_id, message, seen, created_at)
+         VALUES (?, ?, ?, ?, ?, 0, ?)'
+    );
+    $stmt->execute([$fromEmail, $fromName, $toEmail, $gameId, $message, gmdate('Y-m-d H:i:s')]);
+    json_out(['ok' => true]);
+}
+
+function route_inbox(): void
+{
+    $email = strtolower(trim((string)($_GET['email'] ?? '')));
+    if (!valid_email($email)) {
+        fail('valid email required');
+    }
+    $limit = (int)($_GET['limit'] ?? 50);
+    $limit = max(1, min(200, $limit));
+
+    $pdo = db();
+    $stmt = $pdo->prepare(
+        'SELECT id, from_email, from_name, game_id, message, seen, created_at
+           FROM shares
+          WHERE to_email = ?
+          ORDER BY created_at DESC
+          LIMIT ' . $limit
+    );
+    $stmt->execute([$email]);
+    json_out(['ok' => true, 'email' => $email, 'shares' => $stmt->fetchAll()]);
+}
+
+function route_seen(): void
+{
+    require_write();
+    $in = body_json();
+    $email = strtolower(trim((string)($in['email'] ?? '')));
+    $id = filter_var($in['id'] ?? null, FILTER_VALIDATE_INT);
+    if (!valid_email($email) || $id === false || $id === null) {
+        fail('id and valid email required');
+    }
+    $pdo = db();
+    // Scope by to_email so you can only mark your own shares.
+    $stmt = $pdo->prepare('UPDATE shares SET seen = 1 WHERE id = ? AND to_email = ?');
+    $stmt->execute([$id, $email]);
+    json_out(['ok' => true]);
+}
+
 // ---- dispatch --------------------------------------------------------------
 
 try {
@@ -311,6 +407,15 @@ try {
             break;
         case 'player':
             route_player();
+            break;
+        case 'share':
+            route_share();
+            break;
+        case 'inbox':
+            route_inbox();
+            break;
+        case 'seen':
+            route_seen();
             break;
         default:
             fail('unknown route: ' . $r, 404);

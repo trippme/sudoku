@@ -108,5 +108,57 @@ void main() {
       ),
       isNull,
     );
+    expect(await lb.inbox('a@b.co'), isEmpty);
+    expect(
+      await lb.sendGame(
+          fromEmail: 'a@b.co', fromName: 'A', toEmail: 'c@d.co', gameId: 1),
+      isFalse,
+    );
+  });
+
+  test('sendGame posts the share body and reports success', () async {
+    Map<String, dynamic>? body;
+    Uri? seen;
+    final lb = RemoteLeaderboard(base, client: MockClient((req) async {
+      seen = req.url;
+      body = jsonDecode(req.body) as Map<String, dynamic>;
+      return http.Response(jsonEncode({'ok': true}), 200);
+    }));
+    final ok = await lb.sendGame(
+      fromEmail: 'me@x.com',
+      fromName: 'Me',
+      toEmail: 'sam@y.com',
+      gameId: 1234,
+      message: 'stuck!',
+    );
+    expect(seen!.queryParameters['r'], 'share');
+    expect(body!['fromEmail'], 'me@x.com');
+    expect(body!['toEmail'], 'sam@y.com');
+    expect(body!['gameId'], 1234);
+    expect(body!['message'], 'stuck!');
+    expect(ok, isTrue);
+  });
+
+  test('inbox parses received games from the live JSON shape', () async {
+    final lb = RemoteLeaderboard(base, client: MockClient((req) async {
+      return http.Response(
+        jsonEncode({
+          'ok': true,
+          'email': 'me@x.com',
+          'shares': [
+            {'id': 7, 'from_email': 'sam@y.com', 'from_name': 'Sam', 'game_id': 1234, 'message': 'beat this', 'seen': 0, 'created_at': '2026-06-13 05:00:00'},
+            {'id': 6, 'from_email': 'ana@z.com', 'from_name': 'Ana', 'game_id': 99, 'message': '', 'seen': 1, 'created_at': '2026-06-12 09:00:00'},
+          ],
+        }),
+        200,
+      );
+    }));
+    final games = await lb.inbox('me@x.com');
+    expect(games.length, 2);
+    expect(games.first.id, 7);
+    expect(games.first.fromName, 'Sam');
+    expect(games.first.gameId, 1234);
+    expect(games.first.seen, isFalse);
+    expect(games[1].seen, isTrue);
   });
 }

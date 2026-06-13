@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../engine/sudoku_engine.dart';
 import '../models/game_state.dart';
 import '../models/stats.dart';
-import '../services/daily.dart';
+import '../services/game_catalog.dart';
 import 'game_screen.dart';
 import 'stats_screen.dart';
 import 'settings_screen.dart';
@@ -14,6 +14,41 @@ class HomeMenu extends StatelessWidget {
 
   void _open(BuildContext context, Widget screen) {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  }
+
+  Future<void> _playByNumber(BuildContext context) async {
+    final controller = TextEditingController();
+    final number = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Play by number'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Game number',
+            hintText: 'e.g. 1234',
+          ),
+          onSubmitted: (_) =>
+              Navigator.pop(ctx, int.tryParse(controller.text.trim())),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(ctx, int.tryParse(controller.text.trim())),
+            child: const Text('Play'),
+          ),
+        ],
+      ),
+    );
+    if (number == null || !context.mounted) return;
+    context.read<GameState>().playGame(number);
+    _open(context, const GameScreen());
   }
 
   @override
@@ -67,12 +102,17 @@ class HomeMenu extends StatelessWidget {
                 _MenuButton(
                   icon: Icons.today,
                   label: dailyDone
-                      ? 'Daily Puzzle ✓ (${DailyPuzzle.difficultyFor(today).label})'
-                      : 'Daily Puzzle (${DailyPuzzle.difficultyFor(today).label})',
+                      ? 'Daily Puzzle ✓ (${GameCatalog.dailyDifficultyFor(today).label})'
+                      : 'Daily Puzzle (${GameCatalog.dailyDifficultyFor(today).label})',
                   onTap: () {
                     context.read<GameState>().startDaily(today);
                     _open(context, const GameScreen());
                   },
+                ),
+                _MenuButton(
+                  icon: Icons.tag,
+                  label: 'Play by Number',
+                  onTap: () => _playByNumber(context),
                 ),
 
                 const SizedBox(height: 8),

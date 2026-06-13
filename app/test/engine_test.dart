@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sudoku_app/engine/sudoku_engine.dart';
 import 'package:sudoku_app/engine/hint_engine.dart';
-import 'package:sudoku_app/services/daily.dart';
+import 'package:sudoku_app/services/game_catalog.dart';
 
 void main() {
   group('generator', () {
@@ -77,19 +77,34 @@ void main() {
     });
   });
 
-  group('daily puzzle', () {
-    test('is deterministic for a given date', () {
-      final date = DateTime(2026, 6, 11);
-      final a = DailyPuzzle.generate(date);
-      final b = DailyPuzzle.generate(date);
+  group('game catalog', () {
+    Puzzle daily(DateTime d) =>
+        GameCatalog.puzzleForGame(GameCatalog.dailyGameId(d));
+
+    test('a game number is deterministic', () {
+      final a = GameCatalog.puzzleForGame(1234);
+      final b = GameCatalog.puzzleForGame(1234);
       expect(a.givens, b.givens);
       expect(a.solution, b.solution);
     });
 
-    test('differs across dates', () {
-      final a = DailyPuzzle.generate(DateTime(2026, 6, 11));
-      final b = DailyPuzzle.generate(DateTime(2026, 6, 12));
-      expect(a.givens, isNot(b.givens));
+    test('different numbers give different puzzles', () {
+      expect(GameCatalog.puzzleForGame(1234).givens,
+          isNot(GameCatalog.puzzleForGame(1235).givens));
+    });
+
+    test('a random game id matches its requested difficulty band', () {
+      for (final d in Difficulty.values) {
+        final id = GameCatalog.randomGameId(d);
+        expect(id % Difficulty.values.length, d.index);
+      }
+    });
+
+    test('daily is deterministic per date and varies across dates', () {
+      final a = daily(DateTime(2026, 6, 11));
+      final b = daily(DateTime(2026, 6, 11));
+      expect(a.givens, b.givens);
+      expect(daily(DateTime(2026, 6, 12)).givens, isNot(a.givens));
     });
   });
 }

@@ -101,6 +101,17 @@ flutter test
 - The in-progress game auto-saves continuously → a **Continue** button on the
   home menu resumes it. Settings and stats persist across launches.
 
+**Online (optional — needs the backend deployed)**
+- Every game has a **shareable number** (the seed; it also encodes difficulty),
+  shown in the game screen. **Play by Number** opens any game; **Share** copies
+  a "beat my time on game #N" challenge.
+- A **profile** (display name + email, no password) identifies you; counts of
+  **hints and mistakes** are tracked per game.
+- On finishing, your result is submitted and your **rank** is shown. A
+  **Leaderboard** screen shows the global top times and your **friends'**
+  results for that game (ranked fewest hints, then fastest). Add friends by
+  email in Settings. All of this fails soft when offline.
+
 ## Engine (the "server replacement")
 
 `app/lib/engine/sudoku_engine.dart` runs locally what the original needed a

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'config.dart';
 import 'models/game_state.dart';
 import 'models/settings.dart';
 import 'models/stats.dart';
+import 'models/profile.dart';
 import 'services/storage.dart';
+import 'services/leaderboard.dart';
 import 'ui/home_menu.dart';
 
 Future<void> main() async {
@@ -19,12 +22,23 @@ class SudokuApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final settings = Settings.load();
     final stats = Stats.load();
+    final profile = Profile.load();
+    final LeaderboardService leaderboard =
+        RemoteLeaderboard(kBackendBaseUrl, apiKey: kBackendApiKey);
+
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: settings),
         ChangeNotifierProvider.value(value: stats),
+        ChangeNotifierProvider.value(value: profile),
+        Provider<LeaderboardService>.value(value: leaderboard),
         ChangeNotifierProvider(
-          create: (_) => GameState(settings: settings, stats: stats),
+          create: (_) => GameState(
+            settings: settings,
+            stats: stats,
+            profile: profile,
+            leaderboard: leaderboard,
+          ),
         ),
       ],
       child: MaterialApp(

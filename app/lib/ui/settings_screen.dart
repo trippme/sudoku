@@ -1,17 +1,158 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/settings.dart';
+import '../models/profile.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
+  Future<void> _editIdentity(BuildContext context, Profile profile) async {
+    final nameCtl = TextEditingController(text: profile.name);
+    final emailCtl = TextEditingController(text: profile.email);
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Your profile'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtl,
+              decoration: const InputDecoration(labelText: 'Display name'),
+            ),
+            TextField(
+              controller: emailCtl,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'Email (your identity, no password)',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (!Profile.isValidEmail(emailCtl.text)) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('Enter a valid email')),
+                );
+                return;
+              }
+              Navigator.pop(ctx, true);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (saved == true) {
+      profile.setIdentity(name: nameCtl.text, email: emailCtl.text);
+    }
+  }
+
+  Future<void> _manageFriends(BuildContext context, Profile profile) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        final addCtl = TextEditingController();
+        return StatefulBuilder(
+          builder: (ctx, setSheet) => Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 16,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Friends',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: addCtl,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(
+                          labelText: "Friend's email",
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: () {
+                        if (Profile.isValidEmail(addCtl.text)) {
+                          profile.addFriend(addCtl.text);
+                          addCtl.clear();
+                          setSheet(() {});
+                        }
+                      },
+                      child: const Text('Add'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (profile.friends.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Text('No friends yet.',
+                        style: TextStyle(color: Colors.black54)),
+                  ),
+                for (final f in profile.friends)
+                  ListTile(
+                    dense: true,
+                    title: Text(f),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: () {
+                        profile.removeFriend(f);
+                        setSheet(() {});
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<Settings>();
+    final profile = context.watch<Profile>();
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
+          const _SectionHeader('Profile (for leaderboard & friends)'),
+          ListTile(
+            leading: const Icon(Icons.person),
+            title: Text(profile.name.isEmpty ? 'Set your name' : profile.name),
+            subtitle: Text(profile.email.isEmpty
+                ? 'No email set — tap to join the leaderboard'
+                : profile.email),
+            trailing: const Icon(Icons.edit),
+            onTap: () => _editIdentity(context, profile),
+          ),
+          ListTile(
+            leading: const Icon(Icons.group),
+            title: const Text('Friends'),
+            subtitle: Text(profile.friends.isEmpty
+                ? 'Add friends by email to compete'
+                : '${profile.friends.length} friend(s)'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _manageFriends(context, profile),
+          ),
           const _SectionHeader('Input'),
           ListTile(
             title: const Text('Input method'),

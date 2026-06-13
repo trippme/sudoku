@@ -4,9 +4,11 @@ import 'package:flutter/foundation.dart';
 import '../engine/sudoku_engine.dart';
 import '../engine/hint_engine.dart';
 import '../services/storage.dart';
-import '../services/daily.dart';
+import '../services/game_catalog.dart';
+import '../services/leaderboard.dart';
 import 'settings.dart';
 import 'stats.dart';
+import 'profile.dart';
 
 /// What triggered a flash, so the UI can colour it (house = amber, an entire
 /// digit completed = green), echoing the original "Blink Completed".
@@ -36,14 +38,26 @@ class GameState extends ChangeNotifier {
   final SudokuEngine engine = SudokuEngine();
   final Settings settings;
   final Stats stats;
+  final Profile profile;
+  final LeaderboardService leaderboard;
 
-  GameState({required this.settings, required this.stats});
+  GameState({
+    required this.settings,
+    required this.stats,
+    required this.profile,
+    required this.leaderboard,
+  });
 
   List<Cell> cells = List.generate(81, (_) => Cell());
   List<int> solution = List<int>.filled(81, 0);
   Difficulty difficulty = Difficulty.easy;
+  int gameId = 0; // the shareable game number
   bool isDaily = false;
   String? dailyDateIso;
+
+  // Per-game counters used for ranking/submission.
+  int hintsUsed = 0;
+  int mistakesMade = 0;
 
   // Input state machine, mirroring the original "Enjoy Sudoku":
   //   selectionMode: 0 = neutral, 1 = a digit is selected (digit-then-cell),
@@ -94,31 +108,44 @@ class GameState extends ChangeNotifier {
   // ---- Game lifecycle ---------------------------------------------------
 
   void newGame(Difficulty d) {
-    final puzzle = engine.generate(d);
-    _install(puzzle.givens, puzzle.solution, puzzle.difficulty,
-        daily: false, dailyIso: null);
+    final id = GameCatalog.randomGameId(d);
+    final puzzle = GameCatalog.puzzleForGame(id);
+    _install(id, puzzle, daily: false, dailyIso: null);
     stats.recordStart(puzzle.difficulty);
   }
 
   /// Start (or resume in-progress) the deterministic daily puzzle for [date].
   void startDaily(DateTime date) {
-    final puzzle = DailyPuzzle.generate(date);
-    _install(puzzle.givens, puzzle.solution, puzzle.difficulty,
-        daily: true, dailyIso: Stats.isoDate(date));
+    final id = GameCatalog.dailyGameId(date);
+    final puzzle = GameCatalog.puzzleForGame(id);
+    _install(id, puzzle, daily: true, dailyIso: Stats.isoDate(date));
+    stats.recordStart(puzzle.difficulty);
+  }
+
+  /// Start a specific game by its number (for "play by number" and shared
+  /// games). Same number → same puzzle for everyone.
+  void playGame(int id) {
+    final puzzle = GameCatalog.puzzleForGame(id);
+    _install(id, puzzle, daily: false, dailyIso: null);
     stats.recordStart(puzzle.difficulty);
   }
 
   void _install(
-    List<int> givens,
-    List<int> sol,
-    Difficulty d, {
+    int id,
+    Puzzle puzzle, {
     required bool daily,
     required String? dailyIso,
   }) {
-    difficulty = d;
+    final givens = puzzle.givens;
+    final sol = puzzle.solution;
+    gameId = id;
+    difficulty = puzzle.difficulty;
     solution = sol;
     isDaily = daily;
     dailyDateIso = dailyIso;
+    hintsUsed = 0;
+    mistakesMade = 0;
+    lastOutcome = null;
     cells = List.generate(
       81,
       (i) => Cell(value: givens[i], given: givens[i] != 0),
@@ -302,6 +329,10 @@ class GameState extends ChangeNotifier {
       c.value = 0;
       return true;
     }
+    // A wrong digit (disagrees with the unique solution) counts as a mistake.
+    if (solution[cell] != 0 && activeDigit != solution[cell]) {
+      mistakesMade++;
+    }
     c.value = activeDigit;
     c.marks.clear();
     if (settings.autoRemoveMarks) {
@@ -359,6 +390,7 @@ class GameState extends ChangeNotifier {
 
   /// Applies a hint's placements/eliminations to the board.
   void applyHint(Hint hint) {
+    hintsUsed++;
     _pushUndo();
     for (final p in hint.placements) {
       cells[p.cell].value = p.digit;
@@ -380,6 +412,7 @@ class GameState extends ChangeNotifier {
     final i = selectedCell;
     if (i == null || cells[i].given || _solved || solution[i] == 0) return;
     if (cells[i].value == solution[i]) return;
+    hintsUsed++;
     _pushUndo();
     cells[i].value = solution[i];
     cells[i].marks.clear();
@@ -428,17 +461,44 @@ class GameState extends ChangeNotifier {
         daily: isDaily,
         now: DateTime.now(),
       );
+      _submitResult();
       Storage.remove(_saveKey); // finished game no longer needs resuming
     }
+  }
+
+  /// Fire-and-forget submit to the backend (no-op if no email set or offline).
+  /// Stores the outcome so the UI can show your rank.
+  SubmitOutcome? lastOutcome;
+  void _submitResult() {
+    if (profile.email.isEmpty) return;
+    leaderboard
+        .submitResult(
+          gameId: gameId,
+          email: profile.email,
+          name: profile.name,
+          seconds: elapsed.inSeconds,
+          hints: hintsUsed,
+          mistakes: mistakesMade,
+          difficulty: difficulty.index,
+        )
+        .then((outcome) {
+      if (outcome != null) {
+        lastOutcome = outcome;
+        notifyListeners();
+      }
+    });
   }
 
   // ---- Persistence ------------------------------------------------------
 
   String _encode() => jsonEncode({
+        'gameId': gameId,
         'difficulty': difficulty.index,
         'isDaily': isDaily,
         'dailyDateIso': dailyDateIso,
         'elapsed': elapsed.inSeconds,
+        'hintsUsed': hintsUsed,
+        'mistakesMade': mistakesMade,
         'solution': solution,
         'cells': [
           for (final c in cells)
@@ -464,10 +524,13 @@ class GameState extends ChangeNotifier {
     if (raw == null) return false;
     try {
       final m = jsonDecode(raw) as Map<String, dynamic>;
+      gameId = (m['gameId'] ?? 0) as int;
       difficulty = Difficulty.values[m['difficulty'] as int];
       isDaily = (m['isDaily'] ?? false) as bool;
       dailyDateIso = m['dailyDateIso'] as String?;
       elapsed = Duration(seconds: (m['elapsed'] ?? 0) as int);
+      hintsUsed = (m['hintsUsed'] ?? 0) as int;
+      mistakesMade = (m['mistakesMade'] ?? 0) as int;
       solution = (m['solution'] as List).map((e) => e as int).toList();
       cells = [
         for (final c in (m['cells'] as List))
@@ -485,6 +548,8 @@ class GameState extends ChangeNotifier {
       activeDigit = 1;
       selectedCell = null;
       pencilMode = false;
+      flashCells = {};
+      lastOutcome = null;
       _undo.clear();
       _redo.clear();
       _solved = false;

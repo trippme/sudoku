@@ -24,9 +24,12 @@ class ControlPad extends StatelessWidget {
                 color: Colors.green.shade100,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
-                '🎉 Solved!',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              child: Text(
+                game.lastOutcome != null
+                    ? '🎉 Solved!  Rank ${game.lastOutcome!.rank} of ${game.lastOutcome!.total}'
+                    : '🎉 Solved!',
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
           // Digit row

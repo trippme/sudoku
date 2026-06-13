@@ -1,8 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sudoku_app/services/storage.dart';
+import 'package:sudoku_app/services/leaderboard.dart';
 import 'package:sudoku_app/models/settings.dart';
 import 'package:sudoku_app/models/stats.dart';
+import 'package:sudoku_app/models/profile.dart';
 import 'package:sudoku_app/models/game_state.dart';
 import 'package:sudoku_app/engine/sudoku_engine.dart';
 
@@ -15,7 +17,12 @@ void main() {
   });
 
   GameState makeGame(InputMode mode) {
-    final game = GameState(settings: Settings(inputMode: mode), stats: Stats.load());
+    final game = GameState(
+      settings: Settings(inputMode: mode),
+      stats: Stats.load(),
+      profile: Profile(),
+      leaderboard: NullLeaderboard(),
+    );
     game.newGame(Difficulty.easy);
     return game;
   }

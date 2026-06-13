@@ -4,8 +4,10 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:sudoku_app/services/storage.dart';
+import 'package:sudoku_app/services/leaderboard.dart';
 import 'package:sudoku_app/models/settings.dart';
 import 'package:sudoku_app/models/stats.dart';
+import 'package:sudoku_app/models/profile.dart';
 import 'package:sudoku_app/models/game_state.dart';
 import 'package:sudoku_app/engine/sudoku_engine.dart';
 import 'package:sudoku_app/ui/sudoku_grid.dart';
@@ -40,8 +42,12 @@ void main() {
   testWidgets('completing a digit flashes its cells green', (tester) async {
     final settings = Settings(inputMode: InputMode.hybrid);
     final stats = Stats.load();
-    final game = GameState(settings: settings, stats: stats)
-      ..newGame(Difficulty.easy);
+    final game = GameState(
+      settings: settings,
+      stats: stats,
+      profile: Profile(),
+      leaderboard: NullLeaderboard(),
+    )..newGame(Difficulty.easy);
 
     await tester.pumpWidget(
       MultiProvider(

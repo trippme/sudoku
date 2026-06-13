@@ -54,11 +54,19 @@ echo.
 REM ---- build -------------------------------------------------------------
 pushd "%APP_DIR%" || (echo [ERROR] Cannot find app folder: %APP_DIR% & goto :fail)
 
+REM ---- build metadata (git commit + timestamp, shown in-app) -------------
+set "GIT_SHA=unknown"
+for /f "delims=" %%i in ('git -C "%~dp0." rev-parse --short HEAD 2^>nul') do set "GIT_SHA=%%i"
+git -C "%~dp0." diff --quiet HEAD >nul 2>&1 || set "GIT_SHA=%GIT_SHA%+dirty"
+set "BUILD_TIME=unknown"
+for /f "delims=" %%t in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd_HH:mm" 2^>nul') do set "BUILD_TIME=%%t"
+echo Stamping build: %GIT_SHA% at %BUILD_TIME%
+
 echo Building %MODE% APK ^(first build can take a few minutes^)...
 if /I "%MODE%"=="release" (
-  call flutter build apk --release
+  call flutter build apk --release --dart-define=GIT_SHA=%GIT_SHA% --dart-define=BUILD_TIME=%BUILD_TIME%
 ) else (
-  call flutter build apk --debug
+  call flutter build apk --debug --dart-define=GIT_SHA=%GIT_SHA% --dart-define=BUILD_TIME=%BUILD_TIME%
 )
 if errorlevel 1 (popd & echo [ERROR] Flutter build failed. & goto :fail)
 popd

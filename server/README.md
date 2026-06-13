@@ -55,6 +55,9 @@ All responses are JSON with an `ok` boolean. Pass the route as `?r=`.
 | `?r=share` | POST | JSON `{fromEmail,fromName,toEmail,gameId,message}` | Send a game to a friend's inbox |
 | `?r=inbox` | GET | `email`, `limit` | Games sent to you (newest first) |
 | `?r=seen` | POST | JSON `{id,email}` | Mark a received game as seen |
+| `?r=finish` | POST | JSON `{email,name,gameId,seconds,hints}` | Push your result to everyone you share that game with |
+| `?r=notifications` | GET | `email`, `limit` | Competitor results pushed to you |
+| `?r=notif_seen` | POST | JSON `{id,email}` | Mark a competitor result as seen |
 
 **POST `?r=result`** body:
 ```json
@@ -95,6 +98,22 @@ includes `email` (friends share emails).
 ```
 
 **POST `?r=seen`** body `{id, email}` → `{ok}`. Marks that received game read.
+
+**POST `?r=finish`** body `{email, name, gameId, seconds, hints}` →
+`{ok, notified}`. When you finish a game, this pushes your result to everyone
+you have a share relationship with on that game (the people you're competing
+with). One notification per (recipient, sender, game) — a re-finish replaces the
+prior one.
+
+**GET `?r=notifications&email=you@x.com`** →
+```json
+{ "ok": true, "email": "you@x.com", "notifications": [
+  { "id": 3, "from_email": "sam@y.com", "from_name": "Sam", "game_id": 1234,
+    "seconds": 250, "hints": 0, "seen": 0, "created_at": "2026-06-13 06:00:00" }
+]}
+```
+
+**POST `?r=notif_seen`** body `{id, email}` → `{ok}`. Marks that result read.
 
 ## Test it (curl)
 

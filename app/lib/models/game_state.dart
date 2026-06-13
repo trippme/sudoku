@@ -547,6 +547,14 @@ class GameState extends ChangeNotifier {
         notifyListeners();
       }
     });
+    // Push your result to anyone you're competing with on this game (#6/#7).
+    leaderboard.notifyFinish(
+      email: profile.email,
+      name: profile.name,
+      gameId: gameId,
+      seconds: elapsed.inSeconds,
+      hints: hintsUsed,
+    );
   }
 
   // ---- Persistence ------------------------------------------------------

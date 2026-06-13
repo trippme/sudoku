@@ -44,6 +44,9 @@ dependencies:
   # HTTP client for the optional thin backend (daily leaderboard sync).
   http: ^1.2.2
 
+  # Reads the app version/build number baked into the binary.
+  package_info_plus: ^8.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

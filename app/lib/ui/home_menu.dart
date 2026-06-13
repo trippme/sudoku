@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
+import '../build_info.dart';
 import '../engine/sudoku_engine.dart';
 import '../models/game_state.dart';
 import '../models/stats.dart';
@@ -235,11 +237,38 @@ class _HomeMenuState extends State<HomeMenu> {
                   label: 'Settings',
                   onTap: () => _open(const SettingsScreen()),
                 ),
+                const _VersionFooter(),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Shows the build identity so you can tell exactly which version is running:
+/// app version+build, the git commit it was built from, and when.
+class _VersionFooter extends StatelessWidget {
+  const _VersionFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<PackageInfo>(
+      future: PackageInfo.fromPlatform(),
+      builder: (context, snap) {
+        final info = snap.data;
+        final version =
+            info == null ? '' : 'v${info.version}+${info.buildNumber} · ';
+        return Padding(
+          padding: const EdgeInsets.only(top: 20),
+          child: Text(
+            '$version$kGitSha · $kBuildTime',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12, color: Colors.black38),
+          ),
+        );
+      },
     );
   }
 }

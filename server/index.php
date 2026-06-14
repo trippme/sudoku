@@ -264,10 +264,10 @@ function rate_hit(PDO $pdo, string $key, int $limit, int $window): bool
 function enforce_rate_limits(PDO $pdo, string $route): void
 {
     $ip = client_ip();
-    if (!rate_hit($pdo, "ip:$ip", 100, 60)) {
+    if (!rate_hit($pdo, "ip:$ip", 40, 60)) {
         fail('rate limited', 429);
     }
-    $perRoute = ['share' => 15, 'register_token' => 20, 'result' => 30, 'finish' => 30];
+    $perRoute = ['share' => 6, 'register_token' => 8, 'result' => 12, 'finish' => 12];
     if (isset($perRoute[$route]) && !rate_hit($pdo, "$route:$ip", $perRoute[$route], 60)) {
         fail('rate limited', 429);
     }

@@ -56,19 +56,24 @@ cd app
 flutter test
 ```
 
-### Sideload to an Android phone (Windows)
+### Build & deploy to your Android phone(s) (Windows)
 
 With a USB-connected phone that has **USB debugging** enabled, double-click
-`sideload.bat` (or run it from a terminal) to build and install:
+`deploy.bat` (or run it from a terminal). It does the **complete** flow:
 
 ```bat
-sideload.bat          REM release build (default)
-sideload.bat debug    REM faster debug build
+deploy.bat            REM git pull + RELEASE build + install to all devices
+deploy.bat debug      REM same, DEBUG build (faster; keeps app data)
+deploy.bat --no-pull  REM skip the git sync (build current local code)
 ```
 
-`sideload.bat` builds once and installs to **every** connected device. Release
-builds are signed with the upload keystore if `android/key.properties` is
-present (see below), otherwise debug keys.
+`deploy.bat` **syncs the repo first** (`git pull`) so you build what you merged
+on GitHub — then builds once and installs + launches on **every** connected
+device. `sideload.bat` is the same thing with the git pull skipped.
+
+Release builds are signed with the upload keystore if `android/key.properties`
+is present (see below), otherwise debug keys. (Deploying the *server* to your
+web host is separate — that's just uploading `server/`.)
 
 ### Releasing & distribution
 

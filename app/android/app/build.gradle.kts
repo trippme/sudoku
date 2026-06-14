@@ -7,6 +7,14 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Enable Firebase (push notifications) only when its config is present. Without
+// app/google-services.json the app builds and runs exactly as before, just with
+// push disabled — so a fresh clone needs no Firebase setup to compile.
+val hasFirebaseConfig = file("google-services.json").exists()
+if (hasFirebaseConfig) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 // Load release signing config from android/key.properties (not committed).
 // If it's absent (e.g. a fresh clone with no keystore), release builds fall
 // back to debug signing so `flutter run --release` still works.

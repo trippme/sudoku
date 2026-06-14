@@ -2,3 +2,7 @@
 *.sqlite
 *.sqlite3
 *.db
+
+# Never commit the Firebase service-account key (a secret) or the cached token.
+fcm-service-account.json
+fcm-access-token.json

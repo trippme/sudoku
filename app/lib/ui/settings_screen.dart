@@ -4,17 +4,19 @@ import '../models/settings.dart';
 import '../models/profile.dart';
 import '../services/background.dart';
 import '../services/notifications.dart';
+import '../services/push.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
-  /// Reconcile background polling with the current preference + identity.
+  /// Reconcile push + background polling with the current preference + identity.
   /// Requesting permission only makes sense when turning the feature on.
   Future<void> _syncNotifications(Settings settings, Profile profile,
       {required bool requestPermission}) async {
     if (settings.notifyChallenges && profile.hasIdentity) {
       if (requestPermission) await NotificationService.requestPermission();
       await BackgroundPoller.enable();
+      PushService.registerToken(profile.email);
     } else {
       await BackgroundPoller.disable();
     }

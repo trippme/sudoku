@@ -18,6 +18,7 @@
 
 declare(strict_types=1);
 require __DIR__ . '/config.php';
+require __DIR__ . '/fcm.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -116,6 +117,15 @@ function init_schema(PDO $pdo): void
             )'
         );
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_notif_to ON notifications(to_email)');
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS tokens (
+                token TEXT PRIMARY KEY,
+                email TEXT NOT NULL,
+                platform TEXT NOT NULL DEFAULT "",
+                updated_at TEXT NOT NULL
+            )'
+        );
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_tokens_email ON tokens(email)');
     } else {
         $pdo->exec(
             'CREATE TABLE IF NOT EXISTS results (
@@ -159,6 +169,15 @@ function init_schema(PDO $pdo): void
                 seen TINYINT NOT NULL DEFAULT 0,
                 created_at DATETIME NOT NULL,
                 INDEX idx_notif_to (to_email)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+        );
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS tokens (
+                token VARCHAR(255) NOT NULL PRIMARY KEY,
+                email VARCHAR(255) NOT NULL,
+                platform VARCHAR(16) NOT NULL DEFAULT "",
+                updated_at DATETIME NOT NULL,
+                INDEX idx_tokens_email (email)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
         );
     }
@@ -376,6 +395,38 @@ function route_share(): void
          VALUES (?, ?, ?, ?, ?, 0, ?)'
     );
     $stmt->execute([$fromEmail, $fromName, $toEmail, $gameId, $message, gmdate('Y-m-d H:i:s')]);
+
+    // Push it to the recipient right away (best-effort; polling is the fallback).
+    fcm_push_to_email(
+        $pdo,
+        $toEmail,
+        'New challenge from ' . ($fromName !== '' ? $fromName : $fromEmail),
+        $message !== '' ? '#' . $gameId . ': ' . $message : 'Game #' . $gameId . ' — tap to play',
+        ['type' => 'inbox']
+    );
+
+    json_out(['ok' => true]);
+}
+
+function route_register_token(): void
+{
+    require_write();
+    $in = body_json();
+    $email    = strtolower(trim((string)($in['email'] ?? '')));
+    $token    = trim((string)($in['token'] ?? ''));
+    $platform = substr(trim((string)($in['platform'] ?? '')), 0, 16);
+    if (!valid_email($email)) {
+        fail('valid email required');
+    }
+    if ($token === '' || strlen($token) > 255) {
+        fail('token required');
+    }
+    $pdo = db();
+    // A token belongs to exactly one account; re-registering moves it. Portable
+    // upsert: delete-then-insert (avoids SQLite/MySQL dialect differences).
+    $pdo->prepare('DELETE FROM tokens WHERE token = ?')->execute([$token]);
+    $pdo->prepare('INSERT INTO tokens (token, email, platform, updated_at) VALUES (?, ?, ?, ?)')
+        ->execute([$token, $email, $platform, gmdate('Y-m-d H:i:s')]);
     json_out(['ok' => true]);
 }
 
@@ -467,6 +518,14 @@ function route_finish(): void
         $del->execute([$cp, $email, $gameId]);
         $ins->execute([$cp, $email, $name, $gameId, $seconds, $hints, $now]);
         $count++;
+        // Push the "they finished" alert to that competitor.
+        fcm_push_to_email(
+            $pdo,
+            $cp,
+            ($name !== '' ? $name : $email) . ' finished #' . $gameId,
+            sprintf('Their time: %d:%02d · %d hint%s', intdiv($seconds, 60), $seconds % 60, $hints, $hints === 1 ? '' : 's'),
+            ['type' => 'inbox']
+        );
     }
 
     json_out(['ok' => true, 'notified' => $count]);
@@ -530,6 +589,9 @@ try {
             break;
         case 'share':
             route_share();
+            break;
+        case 'register_token':
+            route_register_token();
             break;
         case 'inbox':
             route_inbox();

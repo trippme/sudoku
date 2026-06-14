@@ -79,6 +79,9 @@ web host is separate — that's just uploading `server/`.)
 
 - **Build guide:** [`docs/RELEASE.md`](docs/RELEASE.md) — App Bundle / APK / web
   builds, versioning, and the signing keystore (with backup warning).
+- **Beta testing (Firebase App Distribution):**
+  [`docs/APP_DISTRIBUTION.md`](docs/APP_DISTRIBUTION.md) — get builds to testers
+  with no store/review; `distribute.bat` builds + uploads in one command.
 - **Google Play:** [`docs/PLAY_STORE.md`](docs/PLAY_STORE.md) — full submission
   checklist (account, listing, data-safety form, content rating).
 - **Apple App Store:** [`docs/APP_STORE.md`](docs/APP_STORE.md) — the path for a

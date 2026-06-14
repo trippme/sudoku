@@ -19,10 +19,15 @@ const MYSQL_DSN  = 'mysql:host=localhost;dbname=YOUR_DB;charset=utf8mb4';
 const MYSQL_USER = 'YOUR_USER';
 const MYSQL_PASS = 'YOUR_PASSWORD';
 
-// Optional shared key. If non-empty, submitting a result requires the client
-// to send this value in an "X-Api-Key" header. Leave empty for fully open
-// (no auth), which is fine for a friends leaderboard.
-const API_KEY = '';
+// Shared API key. When non-empty, EVERY request (except health) must send it in
+// an "X-Api-Key" header — a deterrent that keeps drive-by scripts and browsers
+// out (note: it ships inside the app, so it's not strong auth against someone
+// who decompiles the APK). The value lives in data/api-key.txt — git-ignored and
+// web-blocked, so it's never committed — and the build scripts inject the same
+// value into the app via --dart-define=BACKEND_API_KEY. Empty file / missing
+// file => fully open (no key required).
+$__apiKeyFile = __DIR__ . '/data/api-key.txt';
+define('API_KEY', is_readable($__apiKeyFile) ? trim((string)file_get_contents($__apiKeyFile)) : '');
 
 // --- Firebase Cloud Messaging (optional push notifications) ----------------
 // Enables instant push when a friend sends you a game or finishes one you're

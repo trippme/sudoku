@@ -274,9 +274,15 @@ class RemoteLeaderboard implements LeaderboardService {
     }
   }
 
+  /// Header sent on reads so the server's API key (when set) accepts them.
+  Map<String, String> get _keyHeaders => {
+        if (apiKey != null && apiKey!.isNotEmpty) 'X-Api-Key': apiKey!,
+      };
+
   Future<List<ResultEntry>> _getEntries(Uri uri) async {
     try {
-      final res = await _client.get(uri).timeout(const Duration(seconds: 8));
+      final res =
+          await _client.get(uri, headers: _keyHeaders).timeout(const Duration(seconds: 8));
       if (res.statusCode != 200) return const [];
       final m = jsonDecode(res.body) as Map<String, dynamic>;
       final list = (m['entries'] as List? ?? m['results'] as List? ?? const []);
@@ -338,7 +344,8 @@ class RemoteLeaderboard implements LeaderboardService {
   Future<List<ReceivedGame>> inbox(String email, {int limit = 50}) async {
     try {
       final res = await _client
-          .get(_uri('inbox', {'email': email, 'limit': '$limit'}))
+          .get(_uri('inbox', {'email': email, 'limit': '$limit'}),
+              headers: _keyHeaders)
           .timeout(const Duration(seconds: 8));
       if (res.statusCode != 200) return const [];
       final m = jsonDecode(res.body) as Map<String, dynamic>;
@@ -393,7 +400,8 @@ class RemoteLeaderboard implements LeaderboardService {
   Future<List<CompetitorResult>> notifications(String email, {int limit = 50}) async {
     try {
       final res = await _client
-          .get(_uri('notifications', {'email': email, 'limit': '$limit'}))
+          .get(_uri('notifications', {'email': email, 'limit': '$limit'}),
+              headers: _keyHeaders)
           .timeout(const Duration(seconds: 8));
       if (res.statusCode != 200) return const [];
       final m = jsonDecode(res.body) as Map<String, dynamic>;

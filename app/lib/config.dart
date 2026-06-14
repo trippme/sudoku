@@ -5,5 +5,9 @@
 /// reachable.
 const String kBackendBaseUrl = 'https://the949dude.com/sudoku';
 
-/// Optional shared key, if you set API_KEY in the server's config.php.
-const String kBackendApiKey = '';
+/// Shared key sent as the `X-Api-Key` header on every backend call. Injected at
+/// build time via `--dart-define=BACKEND_API_KEY=...` (the build scripts read it
+/// from server/data/api-key.txt), so it isn't committed to the repo. Empty =>
+/// no key sent, which matches a server with no API_KEY configured.
+const String kBackendApiKey =
+    String.fromEnvironment('BACKEND_API_KEY', defaultValue: '');

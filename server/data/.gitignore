@@ -7,3 +7,6 @@
 # including any backup copies (.old/.bak) left behind by a key rotation.
 fcm-service-account*.json*
 fcm-access-token.json
+
+# The shared backend API key (injected into the app at build time).
+api-key.txt

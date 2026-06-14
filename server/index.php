@@ -21,9 +21,11 @@ require __DIR__ . '/config.php';
 require __DIR__ . '/fcm.php';
 
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, X-Api-Key');
+// This API is consumed by the mobile app, which is not subject to CORS, so we do
+// NOT advertise cross-origin access — a browser on another site can't read it.
+// (If you ever add a web client, send Access-Control-Allow-Origin for its exact
+// origin here.)
+header('Vary: Origin');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     http_response_code(204);
@@ -126,6 +128,13 @@ function init_schema(PDO $pdo): void
             )'
         );
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_tokens_email ON tokens(email)');
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS rate (
+                bucket TEXT PRIMARY KEY,
+                count INTEGER NOT NULL,
+                expires INTEGER NOT NULL
+            )'
+        );
     } else {
         $pdo->exec(
             'CREATE TABLE IF NOT EXISTS results (
@@ -180,6 +189,13 @@ function init_schema(PDO $pdo): void
                 INDEX idx_tokens_email (email)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
         );
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS rate (
+                bucket VARCHAR(255) NOT NULL PRIMARY KEY,
+                count INT NOT NULL,
+                expires BIGINT NOT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+        );
     }
 }
 
@@ -193,10 +209,10 @@ function is_better(int $hintsA, int $secA, int $hintsB, int $secB): bool
     return $secA < $secB;
 }
 
-function require_write(): void
+function require_api_key(): void
 {
     if (API_KEY === '') {
-        return; // open
+        return; // open (no key configured)
     }
     $sent = $_SERVER['HTTP_X_API_KEY'] ?? '';
     if (!hash_equals(API_KEY, $sent)) {
@@ -204,11 +220,63 @@ function require_write(): void
     }
 }
 
+/// Best-effort client IP. Honours common proxy headers (the value is only used
+/// for rate-limiting buckets, where a spoofed header just throttles the spoofer).
+function client_ip(): string
+{
+    foreach (['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'] as $h) {
+        if (!empty($_SERVER[$h])) {
+            $ip = trim(explode(',', (string)$_SERVER[$h])[0]);
+            if ($ip !== '') {
+                return substr($ip, 0, 45);
+            }
+        }
+    }
+    return 'unknown';
+}
+
+/// Fixed-window counter in the `rate` table. Returns true if this hit is within
+/// [limit] for the [window] seconds, false if the limit is exceeded.
+function rate_hit(PDO $pdo, string $key, int $limit, int $window): bool
+{
+    $now    = time();
+    $bucket = $key . ':' . intdiv($now, $window);
+    $upd = $pdo->prepare('UPDATE rate SET count = count + 1 WHERE bucket = ?');
+    $upd->execute([$bucket]);
+    if ($upd->rowCount() === 0) {
+        try {
+            $pdo->prepare('INSERT INTO rate (bucket, count, expires) VALUES (?, 1, ?)')
+                ->execute([$bucket, (intdiv($now, $window) + 1) * $window]);
+            // First hit of a window — opportunistically prune expired buckets.
+            $pdo->prepare('DELETE FROM rate WHERE expires < ?')->execute([$now]);
+            return $limit >= 1;
+        } catch (Throwable $e) {
+            $upd->execute([$bucket]); // lost an insert race — still count the hit
+        }
+    }
+    $sel = $pdo->prepare('SELECT count FROM rate WHERE bucket = ?');
+    $sel->execute([$bucket]);
+    return (int)($sel->fetchColumn() ?: 0) <= $limit;
+}
+
+/// Per-IP throttling: a generous overall cap plus tighter caps on the abuse-prone
+/// write routes (challenge spam / push-quota drain / leaderboard pollution).
+function enforce_rate_limits(PDO $pdo, string $route): void
+{
+    $ip = client_ip();
+    if (!rate_hit($pdo, "ip:$ip", 100, 60)) {
+        fail('rate limited', 429);
+    }
+    $perRoute = ['share' => 15, 'register_token' => 20, 'result' => 30, 'finish' => 30];
+    if (isset($perRoute[$route]) && !rate_hit($pdo, "$route:$ip", $perRoute[$route], 60)) {
+        fail('rate limited', 429);
+    }
+}
+
 // ---- routes ----------------------------------------------------------------
 
 function route_result(): void
 {
-    require_write();
     $in = body_json();
 
     $gameId = filter_var($in['gameId'] ?? null, FILTER_VALIDATE_INT);
@@ -367,7 +435,6 @@ function route_player(): void
 
 function route_share(): void
 {
-    require_write();
     $in = body_json();
 
     $fromEmail = strtolower(trim((string)($in['fromEmail'] ?? '')));
@@ -410,7 +477,6 @@ function route_share(): void
 
 function route_register_token(): void
 {
-    require_write();
     $in = body_json();
     $email    = strtolower(trim((string)($in['email'] ?? '')));
     $token    = trim((string)($in['token'] ?? ''));
@@ -453,7 +519,6 @@ function route_inbox(): void
 
 function route_seen(): void
 {
-    require_write();
     $in = body_json();
     $email = strtolower(trim((string)($in['email'] ?? '')));
     $id = filter_var($in['id'] ?? null, FILTER_VALIDATE_INT);
@@ -469,7 +534,6 @@ function route_seen(): void
 
 function route_finish(): void
 {
-    require_write();
     $in = body_json();
 
     $email   = strtolower(trim((string)($in['email'] ?? '')));
@@ -554,7 +618,6 @@ function route_notifications(): void
 
 function route_notif_seen(): void
 {
-    require_write();
     $in = body_json();
     $email = strtolower(trim((string)($in['email'] ?? '')));
     $id = filter_var($in['id'] ?? null, FILTER_VALIDATE_INT);
@@ -571,6 +634,13 @@ function route_notif_seen(): void
 
 try {
     $r = $_GET['r'] ?? 'health';
+    // health stays open + lightweight (for uptime checks). Everything else is
+    // rate-limited per IP and requires the API key (when one is configured).
+    if ($r !== 'health') {
+        $pdo = db();
+        enforce_rate_limits($pdo, (string)$r);
+        require_api_key();
+    }
     switch ($r) {
         case 'health':
             json_out(['ok' => true, 'service' => 'sudoku', 'driver' => DB_DRIVER, 'time' => gmdate('c')]);

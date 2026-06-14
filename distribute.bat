@@ -62,10 +62,14 @@ set "BUILD_TIME=unknown"
 for /f "delims=" %%t in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd_HH:mm" 2^>nul') do set "BUILD_TIME=%%t"
 echo Building %GIT_SHA% at %BUILD_TIME%
 
+REM Backend API key (git-ignored), injected so testers' builds reach the server.
+set "BACKEND_API_KEY="
+if exist "%ROOT%server\data\api-key.txt" set /p BACKEND_API_KEY=<"%ROOT%server\data\api-key.txt"
+
 REM ---- 3. build release APK ----------------------------------------------
 pushd "%APP_DIR%" || (echo [ERROR] Cannot find app folder: %APP_DIR% & goto :fail)
 echo Building release APK ^(first build can take a few minutes^)...
-call flutter build apk --release --dart-define=GIT_SHA=%GIT_SHA% --dart-define=BUILD_TIME=%BUILD_TIME%
+call flutter build apk --release --dart-define=GIT_SHA=%GIT_SHA% --dart-define=BUILD_TIME=%BUILD_TIME% --dart-define=BACKEND_API_KEY=%BACKEND_API_KEY%
 if errorlevel 1 (popd & echo [ERROR] Flutter build failed. & goto :fail)
 popd
 if not exist "%APK%" (echo [ERROR] APK not found at: %APK% & goto :fail)

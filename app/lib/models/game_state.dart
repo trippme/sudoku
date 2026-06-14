@@ -106,6 +106,7 @@ class GameState extends ChangeNotifier {
   int activeDigit = 1;
   int? selectedCell;
   bool pencilMode = false;
+  bool autoPencilOn = false; // Auto-pencil toggle: marks filled for this game
 
   // When a placement completes a house (row/column/box) or all nine of a digit,
   // these hold the cells to flash, what kind it is (for colour), and a serial
@@ -219,6 +220,7 @@ class GameState extends ChangeNotifier {
     activeDigit = 1;
     selectedCell = null;
     pencilMode = false;
+    autoPencilOn = false;
     flashCells = {};
     _undo.clear();
     _redo.clear();
@@ -416,19 +418,32 @@ class GameState extends ChangeNotifier {
     _afterChange();
   }
 
-  /// Fill every empty cell's pencil marks with its current candidates.
-  void autoPencil() {
+  /// Toggle auto-pencil. On: fill every empty cell's marks with its candidates.
+  /// Off (tap again): clear all pencil marks again, so it can be turned off for
+  /// the game (issue #35). Undoable either way.
+  void toggleAutoPencil() {
     _pushUndo();
-    for (var i = 0; i < 81; i++) {
-      if (cells[i].value != 0) continue;
-      final used = <int>{};
-      for (final p in SudokuEngine.peers[i]) {
-        if (cells[p].value != 0) used.add(cells[p].value);
+    if (autoPencilOn) {
+      for (var i = 0; i < 81; i++) {
+        cells[i].marks.clear();
       }
-      cells[i].marks = {
-        for (var d = 1; d <= 9; d++)
-          if (!used.contains(d)) d
-      };
+      autoPencilOn = false;
+    } else {
+      for (var i = 0; i < 81; i++) {
+        if (cells[i].value != 0) {
+          cells[i].marks.clear();
+          continue;
+        }
+        final used = <int>{};
+        for (final p in SudokuEngine.peers[i]) {
+          if (cells[p].value != 0) used.add(cells[p].value);
+        }
+        cells[i].marks = {
+          for (var d = 1; d <= 9; d++)
+            if (!used.contains(d)) d
+        };
+      }
+      autoPencilOn = true;
     }
     _afterChange();
   }
@@ -568,6 +583,7 @@ class GameState extends ChangeNotifier {
         'hintsUsed': hintsUsed,
         'mistakesMade': mistakesMade,
         'lastPlayed': lastPlayed,
+        'autoPencil': autoPencilOn,
         'solution': solution,
         'cells': [
           for (final c in cells)
@@ -689,6 +705,7 @@ class GameState extends ChangeNotifier {
       activeDigit = 1;
       selectedCell = null;
       pencilMode = false;
+      autoPencilOn = (m['autoPencil'] ?? false) as bool;
       flashCells = {};
       lastOutcome = null;
       _undo.clear();

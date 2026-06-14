@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required for the online features (leaderboard, sending games, results).
+         Flutter only adds this to the debug/profile manifests automatically, so
+         release builds need it declared here or all network calls fail. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="sudoku_app"
         android:name="${applicationName}"

@@ -11,9 +11,22 @@
 
 declare(strict_types=1);
 
+// Read config constants defensively: an older config.php (pre-FCM) won't define
+// them, and uploading the new index.php must never fatal-error a live server.
+function fcm_project_id(): string
+{
+    return defined('FCM_PROJECT_ID') ? (string)FCM_PROJECT_ID : '';
+}
+
+function fcm_service_account_path(): string
+{
+    return defined('FCM_SERVICE_ACCOUNT') ? (string)FCM_SERVICE_ACCOUNT : '';
+}
+
 function fcm_enabled(): bool
 {
-    return FCM_PROJECT_ID !== '' && is_readable(FCM_SERVICE_ACCOUNT);
+    $path = fcm_service_account_path();
+    return fcm_project_id() !== '' && $path !== '' && is_readable($path);
 }
 
 function fcm_b64url(string $s): string
@@ -51,7 +64,7 @@ function fcm_access_token(): ?string
     if (!fcm_enabled()) {
         return null;
     }
-    $cacheFile = dirname(FCM_SERVICE_ACCOUNT) . '/fcm-access-token.json';
+    $cacheFile = dirname(fcm_service_account_path()) . '/fcm-access-token.json';
     if (is_readable($cacheFile)) {
         $c = json_decode((string)file_get_contents($cacheFile), true);
         if (is_array($c) && !empty($c['access_token']) && ($c['exp'] ?? 0) - 60 > time()) {
@@ -59,7 +72,7 @@ function fcm_access_token(): ?string
         }
     }
 
-    $sa = json_decode((string)@file_get_contents(FCM_SERVICE_ACCOUNT), true);
+    $sa = json_decode((string)@file_get_contents(fcm_service_account_path()), true);
     if (!is_array($sa) || empty($sa['client_email']) || empty($sa['private_key'])) {
         return null;
     }
@@ -118,7 +131,7 @@ function fcm_send_one(string $accessToken, string $deviceToken, string $title, s
         ],
     ];
     $resp = fcm_http_post(
-        'https://fcm.googleapis.com/v1/projects/' . FCM_PROJECT_ID . '/messages:send',
+        'https://fcm.googleapis.com/v1/projects/' . fcm_project_id() . '/messages:send',
         (string)json_encode($payload),
         ['Content-Type: application/json', 'Authorization: Bearer ' . $accessToken]
     );

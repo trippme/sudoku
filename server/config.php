@@ -33,7 +33,7 @@ const API_KEY = '';
 //   2. Project settings > Service accounts > "Generate new private key" -> save
 //      the downloaded JSON next to this file as data/fcm-service-account.json
 //      (the data/ dir is blocked from the web by .htaccess, like the SQLite DB).
-const FCM_PROJECT_ID      = '';
+const FCM_PROJECT_ID      = 'sudoku-a0bba';
 const FCM_SERVICE_ACCOUNT = __DIR__ . '/data/fcm-service-account.json';
 
 function make_pdo(): PDO

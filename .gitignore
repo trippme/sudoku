@@ -12,3 +12,7 @@ app/.flutter-plugins-dependencies
 *.iml
 .DS_Store
 Thumbs.db
+
+# Local deployment credentials — never commit
+.ftp-credentials
+*.ftp-credentials

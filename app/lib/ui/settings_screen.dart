@@ -263,6 +263,22 @@ class SettingsScreen extends StatelessWidget {
                   }
                 : null,
           ),
+          if (profile.hasIdentity && settings.notifyChallenges)
+            ListTile(
+              leading: const Icon(Icons.notifications_active_outlined),
+              title: const Text('Send a test notification'),
+              subtitle: const Text('Check notifications are allowed and working'),
+              onTap: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                final granted = await NotificationService.showTest();
+                messenger.showSnackBar(SnackBar(
+                  content: Text(granted
+                      ? 'Test sent — check your notification shade.'
+                      : 'Notifications are blocked for Sudoku. Enable them in '
+                          'Android Settings → Apps → Sudoku → Notifications.'),
+                ));
+              },
+            ),
           const _SectionHeader('Display'),
           SwitchListTile(
             title: const Text('Highlight related cells'),

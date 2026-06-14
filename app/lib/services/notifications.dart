@@ -102,6 +102,21 @@ class NotificationService {
     return '$m:$s';
   }
 
+  /// Post a sample notification right now, to verify the channel + permission
+  /// are working without waiting for a real challenge. Returns false if the OS
+  /// permission isn't granted (so the caller can tell the user).
+  static Future<bool> showTest() async {
+    await init();
+    final granted = await requestPermission();
+    await _show(
+      0x7FFFFFFF,
+      'Sudoku notifications are on',
+      'This is a test — real challenges from friends will look like this.',
+      payloadInbox,
+    );
+    return granted ?? true;
+  }
+
   /// Decides which feed rows are "new" — newer than the stored high-water mark
   /// [rawHwm] and not already seen in-app — and the high-water mark to store
   /// next. Pure (no plugin / I/O), so it's unit-testable.

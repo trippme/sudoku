@@ -138,6 +138,14 @@ present (see below), otherwise debug keys.
   **Leaderboard** screen shows the global top times and your **friends'**
   results for that game (ranked fewest hints, then fastest). Add friends by
   email in Settings. All of this fails soft when offline.
+- **Proactive notifications** (no push server): when a friend sends you a
+  challenge or finishes a game you're racing, you get an on-device
+  notification — even while the app is closed. There's no APNs/FCM; the app
+  polls the existing backend periodically in the background (Android
+  `WorkManager`, ~15-min floor) and on launch/resume, and de-dupes so each item
+  notifies once. Toggle it in Settings → *Notifications*. iOS gets the same
+  notifications on launch/resume (background fetch without push is
+  unreliable, so true background delivery is Android-only for now).
 
 ## Engine (the "server replacement")
 

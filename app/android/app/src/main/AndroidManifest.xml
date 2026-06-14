@@ -3,6 +3,11 @@
          Flutter only adds this to the debug/profile manifests automatically, so
          release builds need it declared here or all network calls fail. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Post local notifications for incoming challenges (Android 13+ asks the
+         user at runtime). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Let WorkManager reschedule the background inbox poll after a reboot. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <application
         android:label="Sudoku"
         android:name="${applicationName}"

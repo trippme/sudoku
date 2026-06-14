@@ -22,13 +22,27 @@ class HomeMenu extends StatefulWidget {
   State<HomeMenu> createState() => _HomeMenuState();
 }
 
-class _HomeMenuState extends State<HomeMenu> {
+class _HomeMenuState extends State<HomeMenu> with WidgetsBindingObserver {
   int _unseen = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _refreshInbox();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Coming back from the background (where a notification may have arrived) —
+    // refresh the inbox badge so the in-app signal matches the notification.
+    if (state == AppLifecycleState.resumed) _refreshInbox();
   }
 
   Future<void> _refreshInbox() async {

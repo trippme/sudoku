@@ -40,6 +40,7 @@ class Settings extends ChangeNotifier {
   bool highlightPeers;
   bool highlightSameValue;
   bool autoRemoveMarks; // remove pencil marks from peers when placing a digit
+  bool notifyChallenges; // notify when a challenge/result arrives from a friend
 
   Settings({
     this.mistakeMode = MistakeMode.conflicts,
@@ -47,6 +48,7 @@ class Settings extends ChangeNotifier {
     this.highlightPeers = true,
     this.highlightSameValue = true,
     this.autoRemoveMarks = true,
+    this.notifyChallenges = true,
   });
 
   factory Settings.load() {
@@ -60,6 +62,7 @@ class Settings extends ChangeNotifier {
         highlightPeers: (m['highlightPeers'] ?? true) as bool,
         highlightSameValue: (m['highlightSameValue'] ?? true) as bool,
         autoRemoveMarks: (m['autoRemoveMarks'] ?? true) as bool,
+        notifyChallenges: (m['notifyChallenges'] ?? true) as bool,
       );
     } catch (_) {
       return Settings();
@@ -72,6 +75,7 @@ class Settings extends ChangeNotifier {
         'highlightPeers': highlightPeers,
         'highlightSameValue': highlightSameValue,
         'autoRemoveMarks': autoRemoveMarks,
+        'notifyChallenges': notifyChallenges,
       };
 
   void _save() {
@@ -101,6 +105,11 @@ class Settings extends ChangeNotifier {
 
   void setAutoRemoveMarks(bool v) {
     autoRemoveMarks = v;
+    _save();
+  }
+
+  void setNotifyChallenges(bool v) {
+    notifyChallenges = v;
     _save();
   }
 }

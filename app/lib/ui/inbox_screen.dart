@@ -88,6 +88,8 @@ class _InboxScreenState extends State<InboxScreen> {
               ),
             )
           : ListView(
+              padding:
+                  EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
               children: [
                 _Section<CompetitorResult>(
                   title: "Friends' results",

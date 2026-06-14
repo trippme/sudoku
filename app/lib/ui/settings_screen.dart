@@ -58,6 +58,7 @@ class SettingsScreen extends StatelessWidget {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (ctx) {
         final addCtl = TextEditingController();
         return StatefulBuilder(
@@ -105,17 +106,25 @@ class SettingsScreen extends StatelessWidget {
                     padding: EdgeInsets.all(12),
                     child: Text('No friends yet.',
                         style: TextStyle(color: Colors.black54)),
-                  ),
-                for (final f in profile.friends)
-                  ListTile(
-                    dense: true,
-                    title: Text(f),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: () {
-                        profile.removeFriend(f);
-                        setSheet(() {});
-                      },
+                  )
+                else
+                  Flexible(
+                    child: ListView(
+                      shrinkWrap: true,
+                      children: [
+                        for (final f in profile.friends)
+                          ListTile(
+                            dense: true,
+                            title: Text(f),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () {
+                                profile.removeFriend(f);
+                                setSheet(() {});
+                              },
+                            ),
+                          ),
+                      ],
                     ),
                   ),
               ],
@@ -133,6 +142,7 @@ class SettingsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
         children: [
           const _SectionHeader('Profile (for leaderboard & friends)'),
           ListTile(

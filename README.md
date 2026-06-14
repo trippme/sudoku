@@ -66,9 +66,22 @@ sideload.bat          REM release build (default)
 sideload.bat debug    REM faster debug build
 ```
 
-The release build is signed with debug keys, so it installs without setting up
-a keystore (fine for personal sideloading; a real keystore is needed for store
-release).
+`sideload.bat` builds once and installs to **every** connected device. Release
+builds are signed with the upload keystore if `android/key.properties` is
+present (see below), otherwise debug keys.
+
+### Releasing & distribution
+
+- **Build guide:** [`docs/RELEASE.md`](docs/RELEASE.md) — App Bundle / APK / web
+  builds, versioning, and the signing keystore (with backup warning).
+- **Google Play:** [`docs/PLAY_STORE.md`](docs/PLAY_STORE.md) — full submission
+  checklist (account, listing, data-safety form, content rating).
+- **Apple App Store:** [`docs/APP_STORE.md`](docs/APP_STORE.md) — the path for a
+  Windows machine (build on a cloud Mac / Codemagic).
+- **Privacy policy:** [`server/privacy.html`](server/privacy.html) — host it
+  publicly (both stores require a privacy-policy URL since the app collects an
+  email for online play).
+- App icon is generated from `app/assets/icon/` via `flutter_launcher_icons`.
 
 ## Features
 

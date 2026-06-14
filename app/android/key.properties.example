@@ -1,0 +1,7 @@
+# Template for android/key.properties (the real file is gitignored).
+# Create android/key.properties with these keys to enable release signing.
+# The storeFile path is resolved relative to the android/ folder.
+storePassword=YOUR_KEYSTORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=upload
+storeFile=upload-keystore.jks

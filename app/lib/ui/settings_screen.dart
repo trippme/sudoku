@@ -2,9 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/settings.dart';
 import '../models/profile.dart';
+import '../services/background.dart';
+import '../services/notifications.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
+
+  /// Reconcile background polling with the current preference + identity.
+  /// Requesting permission only makes sense when turning the feature on.
+  Future<void> _syncNotifications(Settings settings, Profile profile,
+      {required bool requestPermission}) async {
+    if (settings.notifyChallenges && profile.hasIdentity) {
+      if (requestPermission) await NotificationService.requestPermission();
+      await BackgroundPoller.enable();
+    } else {
+      await BackgroundPoller.disable();
+    }
+  }
 
   Future<void> _editIdentity(BuildContext context, Profile profile) async {
     final nameCtl = TextEditingController(text: profile.name);
@@ -51,6 +65,11 @@ class SettingsScreen extends StatelessWidget {
     );
     if (saved == true) {
       profile.setIdentity(name: nameCtl.text, email: emailCtl.text);
+      // Now that we have an identity, start polling if notifications are on.
+      if (context.mounted) {
+        await _syncNotifications(context.read<Settings>(), profile,
+            requestPermission: true);
+      }
     }
   }
 
@@ -227,6 +246,22 @@ class SettingsScreen extends StatelessWidget {
                 const Text('Clear a digit from peers\' marks when you place it'),
             value: settings.autoRemoveMarks,
             onChanged: settings.setAutoRemoveMarks,
+          ),
+          const _SectionHeader('Notifications'),
+          SwitchListTile(
+            title: const Text('Challenge notifications'),
+            subtitle: Text(profile.hasIdentity
+                ? 'Get notified when a friend sends a game or finishes one '
+                    'you\'re racing'
+                : 'Set your email above first to receive challenges'),
+            value: settings.notifyChallenges,
+            onChanged: profile.hasIdentity
+                ? (v) async {
+                    settings.setNotifyChallenges(v);
+                    await _syncNotifications(settings, profile,
+                        requestPermission: v);
+                  }
+                : null,
           ),
           const _SectionHeader('Display'),
           SwitchListTile(

@@ -47,6 +47,16 @@ dependencies:
   # Reads the app version/build number baked into the binary.
   package_info_plus: ^8.1.0
 
+  # Local (on-device) notifications for incoming challenges / friend results.
+  flutter_local_notifications: ^18.0.1
+
+  # Periodic background polling so a challenge can notify you while the app is
+  # closed — no formal push server needed (see services/background.dart).
+  workmanager: ^0.9.0
+
+  # Timezone data required by flutter_local_notifications' initialization.
+  timezone: ^0.9.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

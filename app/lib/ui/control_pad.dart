@@ -66,7 +66,8 @@ class ControlPad extends StatelessWidget {
               _Tool(
                 icon: Icons.auto_fix_high,
                 label: 'Auto',
-                onTap: game.autoPencil,
+                active: game.autoPencilOn,
+                onTap: game.toggleAutoPencil,
               ),
               _Tool(
                 icon: Icons.undo,

@@ -253,4 +253,21 @@ void main() {
     g.pressCell(given);
     expect(g.cells[given].value, original);
   });
+
+  test('auto-pencil toggles on then off (issue #35)', () {
+    final g = makeGame(InputMode.hybrid);
+    int markedEmpties() =>
+        g.cells.where((c) => c.value == 0 && c.marks.isNotEmpty).length;
+
+    expect(g.autoPencilOn, isFalse);
+    expect(markedEmpties(), 0);
+
+    g.toggleAutoPencil(); // on → fill candidates everywhere
+    expect(g.autoPencilOn, isTrue);
+    expect(markedEmpties(), greaterThan(0));
+
+    g.toggleAutoPencil(); // off → clear them again
+    expect(g.autoPencilOn, isFalse);
+    expect(markedEmpties(), 0);
+  });
 }

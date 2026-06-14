@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
@@ -27,24 +28,42 @@ class HomeMenu extends StatefulWidget {
 class _HomeMenuState extends State<HomeMenu> with WidgetsBindingObserver {
   int _unseen = 0;
 
+  // Poll while the app sits open in the foreground. Launch/resume/screen-return
+  // polls alone miss a challenge that arrives while you're just looking at the
+  // menu, and there's no push server, so this keeps an active session current.
+  Timer? _pollTimer;
+  static const _pollInterval = Duration(seconds: 30);
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _refreshInbox();
+    _startPolling();
   }
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
+  void _startPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(_pollInterval, (_) => _refreshInbox());
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Coming back from the background (where a notification may have arrived) —
-    // refresh the inbox badge so the in-app signal matches the notification.
-    if (state == AppLifecycleState.resumed) _refreshInbox();
+    // Resuming: poll right away and restart the foreground timer. Pausing: stop
+    // it — the background WorkManager poll covers things while we're away.
+    if (state == AppLifecycleState.resumed) {
+      _refreshInbox();
+      _startPolling();
+    } else if (state == AppLifecycleState.paused) {
+      _pollTimer?.cancel();
+    }
   }
 
   Future<void> _refreshInbox() async {

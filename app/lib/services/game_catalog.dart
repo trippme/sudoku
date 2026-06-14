@@ -25,8 +25,11 @@ class GameCatalog {
     return base - (base % _n) + d.index; // base % _n == d.index
   }
 
-  /// Difficulty for the daily puzzle on [date] (Mon/Tue easy → weekend expert).
-  static Difficulty dailyDifficultyFor(DateTime date) {
+  /// Difficulty for the daily puzzle on [date]. With no [override] it rotates by
+  /// weekday (Mon/Tue easy → weekend expert); pass [override] to pin it to a
+  /// difficulty the player chose in Settings (issue #36).
+  static Difficulty dailyDifficultyFor(DateTime date, [Difficulty? override]) {
+    if (override != null) return override;
     switch (date.weekday) {
       case DateTime.monday:
       case DateTime.tuesday:
@@ -43,9 +46,10 @@ class GameCatalog {
 
   /// The game number for [date]'s daily puzzle. Encodes both the date and the
   /// chosen daily difficulty into one shareable number (and stays well above
-  /// the random-game range so the two never collide).
-  static int dailyGameId(DateTime date) {
+  /// the random-game range so the two never collide). [override] pins the
+  /// difficulty; otherwise it rotates by weekday.
+  static int dailyGameId(DateTime date, [Difficulty? override]) {
     final ymd = date.year * 10000 + date.month * 100 + date.day;
-    return ymd * _n + dailyDifficultyFor(date).index;
+    return ymd * _n + dailyDifficultyFor(date, override).index;
   }
 }

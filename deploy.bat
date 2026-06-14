@@ -95,13 +95,18 @@ set "BUILD_TIME=unknown"
 for /f "delims=" %%t in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd_HH:mm" 2^>nul') do set "BUILD_TIME=%%t"
 echo Stamping build: %GIT_SHA% at %BUILD_TIME%
 
+REM Backend API key, injected so the app can talk to a key-protected server.
+REM Read from server\data\api-key.txt (git-ignored); empty if absent.
+set "BACKEND_API_KEY="
+if exist "%ROOT%server\data\api-key.txt" set /p BACKEND_API_KEY=<"%ROOT%server\data\api-key.txt"
+
 REM ---- 4. build once -----------------------------------------------------
 pushd "%APP_DIR%" || (echo [ERROR] Cannot find app folder: %APP_DIR% & goto :fail)
 echo Building %MODE% APK ^(first build can take a few minutes^)...
 if /I "%MODE%"=="release" (
-  call flutter build apk --release --dart-define=GIT_SHA=%GIT_SHA% --dart-define=BUILD_TIME=%BUILD_TIME%
+  call flutter build apk --release --dart-define=GIT_SHA=%GIT_SHA% --dart-define=BUILD_TIME=%BUILD_TIME% --dart-define=BACKEND_API_KEY=%BACKEND_API_KEY%
 ) else (
-  call flutter build apk --debug --dart-define=GIT_SHA=%GIT_SHA% --dart-define=BUILD_TIME=%BUILD_TIME%
+  call flutter build apk --debug --dart-define=GIT_SHA=%GIT_SHA% --dart-define=BUILD_TIME=%BUILD_TIME% --dart-define=BACKEND_API_KEY=%BACKEND_API_KEY%
 )
 if errorlevel 1 (popd & echo [ERROR] Flutter build failed. & goto :fail)
 popd

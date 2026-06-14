@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import '../engine/sudoku_engine.dart';
 import '../services/storage.dart';
 
 /// How mistakes are surfaced while playing.
@@ -41,6 +42,7 @@ class Settings extends ChangeNotifier {
   bool highlightSameValue;
   bool autoRemoveMarks; // remove pencil marks from peers when placing a digit
   bool notifyChallenges; // notify when a challenge/result arrives from a friend
+  int dailyDifficulty; // -1 = rotate by weekday; else a Difficulty.index
 
   Settings({
     this.mistakeMode = MistakeMode.conflicts,
@@ -49,7 +51,14 @@ class Settings extends ChangeNotifier {
     this.highlightSameValue = true,
     this.autoRemoveMarks = true,
     this.notifyChallenges = true,
+    this.dailyDifficulty = -1,
   });
+
+  /// The fixed daily difficulty the player chose, or null to rotate by weekday.
+  Difficulty? get dailyDifficultyOverride =>
+      dailyDifficulty < 0 || dailyDifficulty >= Difficulty.values.length
+          ? null
+          : Difficulty.values[dailyDifficulty];
 
   factory Settings.load() {
     final raw = Storage.getString(_key);
@@ -63,6 +72,7 @@ class Settings extends ChangeNotifier {
         highlightSameValue: (m['highlightSameValue'] ?? true) as bool,
         autoRemoveMarks: (m['autoRemoveMarks'] ?? true) as bool,
         notifyChallenges: (m['notifyChallenges'] ?? true) as bool,
+        dailyDifficulty: (m['dailyDifficulty'] ?? -1) as int,
       );
     } catch (_) {
       return Settings();
@@ -76,6 +86,7 @@ class Settings extends ChangeNotifier {
         'highlightSameValue': highlightSameValue,
         'autoRemoveMarks': autoRemoveMarks,
         'notifyChallenges': notifyChallenges,
+        'dailyDifficulty': dailyDifficulty,
       };
 
   void _save() {
@@ -110,6 +121,11 @@ class Settings extends ChangeNotifier {
 
   void setNotifyChallenges(bool v) {
     notifyChallenges = v;
+    _save();
+  }
+
+  void setDailyDifficulty(int v) {
+    dailyDifficulty = v;
     _save();
   }
 }

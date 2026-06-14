@@ -166,7 +166,7 @@ class GameState extends ChangeNotifier {
   /// Start the deterministic daily puzzle for [date] — resuming saved progress
   /// on today's daily if you've already begun it, else starting it fresh.
   void startDaily(DateTime date) {
-    final id = GameCatalog.dailyGameId(date);
+    final id = GameCatalog.dailyGameId(date, settings.dailyDifficultyOverride);
     final saved = savedSlot('daily');
     if (saved != null && saved.gameId == id && resumeSlot('daily')) return;
     _install(id, GameCatalog.puzzleForGame(id),

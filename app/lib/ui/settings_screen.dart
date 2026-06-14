@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../engine/sudoku_engine.dart';
 import '../models/settings.dart';
 import '../models/profile.dart';
 import '../services/background.dart';
@@ -183,6 +184,35 @@ class SettingsScreen extends StatelessWidget {
                 : '${profile.friends.length} friend(s)'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _manageFriends(context, profile),
+          ),
+          const _SectionHeader('Daily puzzle'),
+          ListTile(
+            title: const Text('Daily difficulty'),
+            subtitle: Text(settings.dailyDifficultyOverride?.label ??
+                'Match the day (Mon/Tue easy → weekend expert)'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              final choice = await showDialog<int>(
+                context: context,
+                builder: (_) => SimpleDialog(
+                  title: const Text('Daily difficulty'),
+                  children: [
+                    for (final opt in <(int, String)>[
+                      (-1, 'Match the day'),
+                      for (final d in Difficulty.values) (d.index, d.label),
+                    ])
+                      ListTile(
+                        title: Text(opt.$2),
+                        trailing: settings.dailyDifficulty == opt.$1
+                            ? const Icon(Icons.check, color: Color(0xFF2E6FB7))
+                            : null,
+                        onTap: () => Navigator.pop(context, opt.$1),
+                      ),
+                  ],
+                ),
+              );
+              if (choice != null) settings.setDailyDifficulty(choice);
+            },
           ),
           const _SectionHeader('Input'),
           ListTile(

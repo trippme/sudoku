@@ -179,7 +179,8 @@ class _HomeMenuState extends State<HomeMenu> with WidgetsBindingObserver {
   }
 
   Future<void> _daily(DateTime today) async {
-    final id = GameCatalog.dailyGameId(today);
+    final id = GameCatalog.dailyGameId(
+        today, context.read<Settings>().dailyDifficultyOverride);
     final saved = GameState.savedSlot('daily');
     if (saved != null && saved.gameId != id) {
       if (!await _confirmReplace('daily') || !mounted) return;
@@ -195,8 +196,12 @@ class _HomeMenuState extends State<HomeMenu> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final stats = context.watch<Stats>();
+    final settings = context.watch<Settings>();
     final today = DateTime.now();
     final dailyDone = stats.dailyDoneToday(today);
+    final dailyLabel =
+        GameCatalog.dailyDifficultyFor(today, settings.dailyDifficultyOverride)
+            .label;
     final saved = GameState.listSavedGames();
 
     return Scaffold(
@@ -244,8 +249,8 @@ class _HomeMenuState extends State<HomeMenu> with WidgetsBindingObserver {
                 _MenuButton(
                   icon: Icons.today,
                   label: dailyDone
-                      ? 'Daily Puzzle ✓ (${GameCatalog.dailyDifficultyFor(today).label})'
-                      : 'Daily Puzzle (${GameCatalog.dailyDifficultyFor(today).label})',
+                      ? 'Daily Puzzle ✓ ($dailyLabel)'
+                      : 'Daily Puzzle ($dailyLabel)',
                   onTap: () => _daily(today),
                 ),
                 _MenuButton(

@@ -106,5 +106,17 @@ void main() {
       expect(a.givens, b.givens);
       expect(daily(DateTime(2026, 6, 12)).givens, isNot(a.givens));
     });
+
+    test('daily difficulty override pins the difficulty (issue #36)', () {
+      // A Saturday — defaults to expert when not overridden.
+      final sat = DateTime(2026, 6, 13);
+      expect(GameCatalog.dailyDifficultyFor(sat), Difficulty.expert);
+      for (final d in Difficulty.values) {
+        expect(GameCatalog.dailyDifficultyFor(sat, d), d);
+        // The override is encoded in the game number's band (id % 4).
+        expect(GameCatalog.dailyGameId(sat, d) % Difficulty.values.length,
+            d.index);
+      }
+    });
   });
 }

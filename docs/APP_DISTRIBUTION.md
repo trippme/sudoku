@@ -12,9 +12,11 @@ same project used for push notifications).
 1. **Enable it:** Firebase console → *Release & Monitor → App Distribution →
    Get started*. (The first upload can also enable it.)
 2. **Add testers:** add tester emails individually, or create a **group** (the
-   `distribute.bat` script defaults to a group named `testers`). Each tester
+   `distribute.bat` script defaults to the group alias `tester`). Each tester
    gets an invite email; they accept once, then install each new build from the
-   App Tester app or a direct link.
+   App Tester app or a direct link. Note the group **alias** (shown by
+   `firebase appdistribution:group:list`) — that's what `--groups` needs, and it
+   can differ from the display name.
 3. **Firebase CLI** (already installed + logged in as `trippme@whimsicle.net`):
    ```
    npm install -g firebase-tools   # if not installed
@@ -27,9 +29,9 @@ One command — builds a release APK (signed with your upload keystore) and
 uploads it:
 
 ```bat
-distribute.bat                 REM build + upload to the "testers" group
+distribute.bat                 REM build + upload to the "tester" group
 distribute.bat beta            REM upload to a different group
-distribute.bat testers --no-pull   REM skip the git sync, build local code
+distribute.bat tester --no-pull    REM skip the git sync, build local code
 ```
 
 Under the hood it runs:

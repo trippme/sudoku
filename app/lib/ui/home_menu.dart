@@ -4,10 +4,12 @@ import 'package:provider/provider.dart';
 import '../build_info.dart';
 import '../engine/sudoku_engine.dart';
 import '../models/game_state.dart';
+import '../models/settings.dart';
 import '../models/stats.dart';
 import '../models/profile.dart';
 import '../services/game_catalog.dart';
 import '../services/leaderboard.dart';
+import '../services/notifications.dart';
 import 'game_screen.dart';
 import 'stats_screen.dart';
 import 'settings_screen.dart';
@@ -49,6 +51,13 @@ class _HomeMenuState extends State<HomeMenu> with WidgetsBindingObserver {
     final profile = context.read<Profile>();
     if (!profile.hasIdentity) return;
     final svc = context.read<LeaderboardService>();
+    // Foreground delivery: there's no push server and the background poll is
+    // slow/throttled, so when the app is open (launch, resume, returning from a
+    // screen) we poll and raise notifications immediately too. De-dup in
+    // [NotificationService] keeps each item to one notification.
+    if (context.read<Settings>().notifyChallenges) {
+      await NotificationService.pollAndNotify(svc: svc, email: profile.email);
+    }
     final games = await svc.inbox(profile.email);
     final results = await svc.notifications(profile.email);
     final unseen = games.where((g) => !g.seen).length +

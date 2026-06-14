@@ -6,13 +6,14 @@ REM  Sends the build to your testers (no Play Store / no review). They get an
 REM  email + install via the "App Tester" app or a direct link.
 REM
 REM  Usage:
-REM    distribute.bat                 sync + build + upload to group "testers"
+REM    distribute.bat                 sync + build + upload to group "tester"
 REM    distribute.bat <group>         upload to a different tester group
 REM    distribute.bat <group> --no-pull   skip the git sync (build local code)
 REM
 REM  Prereqs (one time):
 REM    1. Firebase console > App Distribution > Get started (enable it).
-REM    2. Add testers, ideally as a group (the default group here is "testers").
+REM    2. Add testers as a group. The default group alias here is "tester"
+REM       (pass a different alias as the first arg to override).
 REM    3. Firebase CLI installed + logged in:  npm i -g firebase-tools
 REM                                            firebase login
 REM ===========================================================================
@@ -25,7 +26,7 @@ set "APP_ID=1:186440557207:android:cde025183a562c667e7fd2"
 set "APK=%APP_DIR%\build\app\outputs\flutter-apk\app-release.apk"
 
 REM ---- args (optional group + --no-pull) ---------------------------------
-set "GROUP=testers"
+set "GROUP=tester"
 set "PULL=1"
 :parse
 if "%~1"=="" goto parsed

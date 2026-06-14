@@ -143,14 +143,17 @@ web host is separate — that's just uploading `server/`.)
   **Leaderboard** screen shows the global top times and your **friends'**
   results for that game (ranked fewest hints, then fastest). Add friends by
   email in Settings. All of this fails soft when offline.
-- **Proactive notifications** (no push server): when a friend sends you a
-  challenge or finishes a game you're racing, you get an on-device
-  notification — even while the app is closed. There's no APNs/FCM; the app
-  polls the existing backend periodically in the background (Android
-  `WorkManager`, ~15-min floor) and on launch/resume, and de-dupes so each item
-  notifies once. Toggle it in Settings → *Notifications*. iOS gets the same
-  notifications on launch/resume (background fetch without push is
-  unreliable, so true background delivery is Android-only for now).
+- **Proactive notifications:** when a friend sends you a challenge or finishes a
+  game you're racing, you get an on-device notification. Toggle it in
+  Settings → *Notifications*. Two delivery paths:
+  - **Polling (always on, no setup):** the app polls the backend while open (a
+    30-second foreground timer, plus launch/resume) and in the background
+    (Android `WorkManager`, ~15-min floor), de-duped so each item notifies once.
+  - **Push (optional, instant):** wire up Firebase Cloud Messaging and challenges
+    arrive within a second or two even with the app closed. No push server to
+    run — Google hosts it; the PHP backend just makes one extra call on
+    share/finish. Setup: [`docs/PUSH_NOTIFICATIONS.md`](docs/PUSH_NOTIFICATIONS.md).
+    The app builds and runs fine without it (falls back to polling).
 
 ## Engine (the "server replacement")
 

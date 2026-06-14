@@ -195,6 +195,15 @@ class NotificationService {
     return shown;
   }
 
+  /// Show a notification with the given text — used to surface an FCM push that
+  /// arrives while the app is in the foreground (FCM doesn't display those).
+  static Future<void> showMessage(
+      String title, String body, String payload) async {
+    await init();
+    // A stable-ish id from the text so identical re-pushes collapse in the tray.
+    await _show(0x30000000 ^ (title.hashCode & 0xFFFFFF), title, body, payload);
+  }
+
   /// Payload meaning "open the inbox".
   static const String payloadInbox = 'inbox';
 }

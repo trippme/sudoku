@@ -24,6 +24,18 @@ const MYSQL_PASS = 'YOUR_PASSWORD';
 // (no auth), which is fine for a friends leaderboard.
 const API_KEY = '';
 
+// --- Firebase Cloud Messaging (optional push notifications) ----------------
+// Enables instant push when a friend sends you a game or finishes one you're
+// racing. Leave FCM_PROJECT_ID empty (or omit the service-account file) and the
+// server simply doesn't push — clients fall back to polling. To enable:
+//   1. Firebase console > Project settings > General > your "Project ID"
+//      -> put it in FCM_PROJECT_ID below.
+//   2. Project settings > Service accounts > "Generate new private key" -> save
+//      the downloaded JSON next to this file as data/fcm-service-account.json
+//      (the data/ dir is blocked from the web by .htaccess, like the SQLite DB).
+const FCM_PROJECT_ID      = '';
+const FCM_SERVICE_ACCOUNT = __DIR__ . '/data/fcm-service-account.json';
+
 function make_pdo(): PDO
 {
     if (DB_DRIVER === 'sqlite') {

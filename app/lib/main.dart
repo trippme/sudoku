@@ -9,6 +9,7 @@ import 'services/storage.dart';
 import 'services/leaderboard.dart';
 import 'services/notifications.dart';
 import 'services/background.dart';
+import 'services/push.dart';
 import 'ui/home_menu.dart';
 import 'ui/inbox_screen.dart';
 
@@ -31,16 +32,18 @@ Future<void> main() async {
 
   await NotificationService.init(onTap: _handleNotificationTap);
   await BackgroundPoller.init();
+  // Optional FCM push (instant delivery). No-ops if Firebase isn't configured.
+  await PushService.init(onTap: _handleNotificationTap);
 
   final settings = Settings.load();
   final profile = Profile.load();
-  // Turn background polling on/off to match the saved preference. Tray
-  // notifications come from the background isolate; while the app is open the
-  // in-app inbox badge is the signal, so we don't double up with a foreground
-  // poll here.
+  // Turn background polling on/off to match the saved preference, and register
+  // for push. Push gives instant delivery when configured; the WorkManager poll
+  // is the fallback when it isn't (or when Play services are unavailable).
   if (settings.notifyChallenges && profile.hasIdentity) {
     await NotificationService.requestPermission();
     await BackgroundPoller.enable();
+    PushService.registerToken(profile.email);
   } else {
     await BackgroundPoller.disable();
   }

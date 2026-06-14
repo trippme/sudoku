@@ -57,6 +57,11 @@ dependencies:
   # Timezone data required by flutter_local_notifications' initialization.
   timezone: ^0.9.4
 
+  # Firebase Cloud Messaging for instant push (optional — the app runs fine
+  # without a Firebase config and falls back to polling). See services/push.dart.
+  firebase_core: ^3.8.0
+  firebase_messaging: ^15.1.5
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../engine/sudoku_engine.dart';
 import '../models/game_state.dart';
+import 'theme.dart';
 
 /// The 9×9 playing field. Tapping a cell selects it. When a row, column, or
 /// box is completed, its cells flash twice (like the original "Blink
@@ -66,7 +67,7 @@ class _SudokuGridState extends State<SudokuGrid>
             final size = c.maxWidth;
             return Container(
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.black, width: 2),
+                border: Border.all(color: context.appColors.gridLine, width: 2),
               ),
               child: Column(
                 children: [
@@ -124,22 +125,24 @@ class _CellView extends StatelessWidget {
     final r = SudokuEngine.rowOf(index);
     final col = SudokuEngine.colOf(index);
     final selected = game.selectedCell;
+    final colors = context.appColors;
+    final scheme = Theme.of(context).colorScheme;
 
     // Thick borders on box boundaries.
     Border border = Border(
       right: BorderSide(
-        color: Colors.black,
+        color: colors.gridLine,
         width: (col % 3 == 2 && col != 8) ? 2 : 0.5,
       ),
       bottom: BorderSide(
-        color: Colors.black,
+        color: colors.gridLine,
         width: (r % 3 == 2 && r != 8) ? 2 : 0.5,
       ),
-      left: BorderSide(color: Colors.black54, width: col == 0 ? 0 : 0.0),
-      top: BorderSide(color: Colors.black54, width: r == 0 ? 0 : 0.0),
+      left: BorderSide(color: colors.gridLine, width: col == 0 ? 0 : 0.0),
+      top: BorderSide(color: colors.gridLine, width: r == 0 ? 0 : 0.0),
     );
 
-    var color = _background(game, index, selected);
+    var color = _background(game, index, selected, colors);
     if (flash > 0) {
       // Blink the completed group, echoing the original "Blink Completed".
       color = Color.lerp(color, flashColor, flash) ?? color;
@@ -158,10 +161,10 @@ class _CellView extends StatelessWidget {
                   fontSize: cellSize * 0.6,
                   fontWeight: cell.given ? FontWeight.bold : FontWeight.w500,
                   color: mistake
-                      ? Colors.red
+                      ? scheme.error
                       : cell.given
-                          ? Colors.black
-                          : const Color(0xFF2E6FB7),
+                          ? scheme.onSurface
+                          : scheme.primary,
                 ),
               )
             : _PencilMarks(marks: cell.marks, cellSize: cellSize),
@@ -169,31 +172,31 @@ class _CellView extends StatelessWidget {
     );
   }
 
-  Color _background(GameState game, int index, int? selected) {
+  Color _background(GameState game, int index, int? selected, AppColors colors) {
     if (selected == index && selected != null) {
-      return const Color(0xFFBBDEFB); // selected cell
+      return colors.cellSelected; // selected cell
     }
     final cell = game.cells[index];
     final hd = game.highlightDigit; // digit-driven highlight (the original feel)
 
     // Cells holding the active digit glow yellow.
     if (game.settings.highlightSameValue && hd != null && cell.value == hd) {
-      return const Color(0xFFFFF1A8);
+      return colors.highlightSame;
     }
     // Cells pencil-marked with the active digit glow pink.
     if (game.settings.highlightSameValue &&
         hd != null &&
         cell.value == 0 &&
         cell.marks.contains(hd)) {
-      return const Color(0xFFF7D6E8);
+      return colors.highlightPencil;
     }
     // Shade the selected cell's row/column/box.
     if (game.settings.highlightPeers &&
         selected != null &&
         SudokuEngine.peers[selected].contains(index)) {
-      return const Color(0xFFEAF1FB);
+      return colors.cellPeer;
     }
-    return Colors.white;
+    return colors.cellBg;
   }
 }
 
@@ -222,7 +225,7 @@ class _PencilMarks extends StatelessWidget {
                               : '',
                           style: TextStyle(
                             fontSize: cellSize * 0.22,
-                            color: Colors.black54,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ),

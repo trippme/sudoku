@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show ThemeMode;
 import '../engine/sudoku_engine.dart';
 import '../services/storage.dart';
 
@@ -43,6 +44,7 @@ class Settings extends ChangeNotifier {
   bool autoRemoveMarks; // remove pencil marks from peers when placing a digit
   bool notifyChallenges; // notify when a challenge/result arrives from a friend
   int dailyDifficulty; // -1 = rotate by weekday; else a Difficulty.index
+  int themeModeIndex; // index into ThemeMode.values: 0=system, 1=light, 2=dark
 
   Settings({
     this.mistakeMode = MistakeMode.conflicts,
@@ -52,6 +54,7 @@ class Settings extends ChangeNotifier {
     this.autoRemoveMarks = true,
     this.notifyChallenges = true,
     this.dailyDifficulty = -1,
+    this.themeModeIndex = 0,
   });
 
   /// The fixed daily difficulty the player chose, or null to rotate by weekday.
@@ -59,6 +62,12 @@ class Settings extends ChangeNotifier {
       dailyDifficulty < 0 || dailyDifficulty >= Difficulty.values.length
           ? null
           : Difficulty.values[dailyDifficulty];
+
+  /// Light/dark/system preference (default: follow the system — issue #40).
+  ThemeMode get themeMode => themeModeIndex >= 0 &&
+          themeModeIndex < ThemeMode.values.length
+      ? ThemeMode.values[themeModeIndex]
+      : ThemeMode.system;
 
   factory Settings.load() {
     final raw = Storage.getString(_key);
@@ -73,6 +82,7 @@ class Settings extends ChangeNotifier {
         autoRemoveMarks: (m['autoRemoveMarks'] ?? true) as bool,
         notifyChallenges: (m['notifyChallenges'] ?? true) as bool,
         dailyDifficulty: (m['dailyDifficulty'] ?? -1) as int,
+        themeModeIndex: (m['themeMode'] ?? 0) as int,
       );
     } catch (_) {
       return Settings();
@@ -87,6 +97,7 @@ class Settings extends ChangeNotifier {
         'autoRemoveMarks': autoRemoveMarks,
         'notifyChallenges': notifyChallenges,
         'dailyDifficulty': dailyDifficulty,
+        'themeMode': themeModeIndex,
       };
 
   void _save() {
@@ -126,6 +137,11 @@ class Settings extends ChangeNotifier {
 
   void setDailyDifficulty(int v) {
     dailyDifficulty = v;
+    _save();
+  }
+
+  void setThemeModeIndex(int v) {
+    themeModeIndex = v;
     _save();
   }
 }

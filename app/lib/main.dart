@@ -12,6 +12,7 @@ import 'services/background.dart';
 import 'services/push.dart';
 import 'ui/home_menu.dart';
 import 'ui/inbox_screen.dart';
+import 'ui/theme.dart';
 
 /// Lets notification taps (which happen outside any widget's context) push a
 /// route onto the app's navigator.
@@ -97,18 +98,17 @@ class SudokuApp extends StatelessWidget {
           ),
         ),
       ],
-      child: MaterialApp(
-        title: 'Sudoku',
-        navigatorKey: navigatorKey,
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF2E6FB7),
-            brightness: Brightness.light,
-          ),
-          useMaterial3: true,
+      // Rebuild the app when the theme preference changes (issue #40).
+      child: Consumer<Settings>(
+        builder: (context, s, _) => MaterialApp(
+          title: 'Sudoku',
+          navigatorKey: navigatorKey,
+          debugShowCheckedModeBanner: false,
+          theme: buildAppTheme(Brightness.light),
+          darkTheme: buildAppTheme(Brightness.dark),
+          themeMode: s.themeMode,
+          home: const HomeMenu(),
         ),
-        home: const HomeMenu(),
       ),
     );
   }

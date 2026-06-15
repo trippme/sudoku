@@ -56,7 +56,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         children: [
           if (!profile.hasIdentity)
             Card(
-              color: Colors.amber.shade50,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               child: const Padding(
                 padding: EdgeInsets.all(12),
                 child: Text(
@@ -130,7 +130,8 @@ class _Results extends StatelessWidget {
           return Padding(
             padding: const EdgeInsets.all(16),
             child: Text(emptyText,
-                style: const TextStyle(color: Colors.black54)),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
           );
         }
         return Card(
@@ -148,7 +149,7 @@ class _Results extends StatelessWidget {
   Widget _row(BuildContext context, int rank, ResultEntry e) {
     final isMe = showEmail && e.email != null && e.email == highlightEmail;
     return Container(
-      color: isMe ? const Color(0xFFE7F0FB) : null,
+      color: isMe ? Theme.of(context).colorScheme.primaryContainer : null,
       child: ListTile(
         dense: true,
         leading: CircleAvatar(

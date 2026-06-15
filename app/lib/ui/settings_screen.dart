@@ -124,10 +124,11 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 if (profile.friends.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(12),
+                  Padding(
+                    padding: const EdgeInsets.all(12),
                     child: Text('No friends yet.',
-                        style: TextStyle(color: Colors.black54)),
+                        style: TextStyle(
+                            color: Theme.of(ctx).colorScheme.onSurfaceVariant)),
                   )
                 else
                   Flexible(
@@ -204,7 +205,8 @@ class SettingsScreen extends StatelessWidget {
                       ListTile(
                         title: Text(opt.$2),
                         trailing: settings.dailyDifficulty == opt.$1
-                            ? const Icon(Icons.check, color: Color(0xFF2E6FB7))
+                            ? Icon(Icons.check,
+                                color: Theme.of(context).colorScheme.primary)
                             : null,
                         onTap: () => Navigator.pop(context, opt.$1),
                       ),
@@ -237,7 +239,8 @@ class SettingsScreen extends StatelessWidget {
                             'Pick a cell, then tap a digit.',
                         }),
                         trailing: settings.inputMode == m
-                            ? const Icon(Icons.check, color: Color(0xFF2E6FB7))
+                            ? Icon(Icons.check,
+                                color: Theme.of(context).colorScheme.primary)
                             : null,
                         onTap: () => Navigator.pop(context, m),
                       ),
@@ -262,7 +265,8 @@ class SettingsScreen extends StatelessWidget {
                       ListTile(
                         title: Text(m.label),
                         trailing: settings.mistakeMode == m
-                            ? const Icon(Icons.check, color: Color(0xFF2E6FB7))
+                            ? Icon(Icons.check,
+                                color: Theme.of(context).colorScheme.primary)
                             : null,
                         onTap: () => Navigator.pop(context, m),
                       ),
@@ -294,6 +298,40 @@ class SettingsScreen extends StatelessWidget {
                         requestPermission: v);
                   }
                 : null,
+          ),
+          const _SectionHeader('Appearance'),
+          ListTile(
+            title: const Text('Theme'),
+            subtitle: Text(switch (settings.themeMode) {
+              ThemeMode.system => 'Match system',
+              ThemeMode.light => 'Light',
+              ThemeMode.dark => 'Dark',
+            }),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              final choice = await showDialog<int>(
+                context: context,
+                builder: (_) => SimpleDialog(
+                  title: const Text('Theme'),
+                  children: [
+                    for (final opt in const <(int, String)>[
+                      (0, 'Match system'),
+                      (1, 'Light'),
+                      (2, 'Dark'),
+                    ])
+                      ListTile(
+                        title: Text(opt.$2),
+                        trailing: settings.themeModeIndex == opt.$1
+                            ? Icon(Icons.check,
+                                color: Theme.of(context).colorScheme.primary)
+                            : null,
+                        onTap: () => Navigator.pop(context, opt.$1),
+                      ),
+                  ],
+                ),
+              );
+              if (choice != null) settings.setThemeModeIndex(choice);
+            },
           ),
           const _SectionHeader('Display'),
           SwitchListTile(

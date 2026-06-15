@@ -108,6 +108,11 @@ class GameState extends ChangeNotifier {
   bool pencilMode = false;
   bool autoPencilOn = false; // Auto-pencil toggle: marks filled for this game
 
+  // Hint reveal highlighting (issue #42), set while the hint panel is open.
+  int? hintFocusDigit; // glow every cell holding this digit (yellow)
+  Set<int> hintHouse = {}; // shade these cells green (the relevant region)
+  int? hintTargetCell; // the answer cell, strongly highlighted
+
   // When a placement completes a house (row/column/box) or all nine of a digit,
   // these hold the cells to flash, what kind it is (for colour), and a serial
   // the UI watches to trigger the animation.
@@ -462,9 +467,35 @@ class GameState extends ChangeNotifier {
     return HintEngine.nextHint(grid);
   }
 
-  /// Applies a hint's placements/eliminations to the board.
-  void applyHint(Hint hint) {
+  /// Drive the board highlight for the currently-shown hint stage.
+  void showHintStage({int? digit, List<int> house = const [], int? cell}) {
+    hintFocusDigit = digit;
+    hintHouse = house.toSet();
+    hintTargetCell = cell;
+    notifyListeners();
+  }
+
+  /// Clear all hint highlighting (when the hint panel closes).
+  void clearHintHighlight() {
+    if (hintFocusDigit == null && hintHouse.isEmpty && hintTargetCell == null) {
+      return;
+    }
+    hintFocusDigit = null;
+    hintHouse = {};
+    hintTargetCell = null;
+    notifyListeners();
+  }
+
+  /// Count one consulted hint (once per opening of the hint panel).
+  void noteHintUsed() {
     hintsUsed++;
+    _save();
+    notifyListeners();
+  }
+
+  /// Applies a hint's placements/eliminations to the board. (The hint is counted
+  /// when the panel opens via [noteHintUsed], so it isn't tallied again here.)
+  void applyHint(Hint hint) {
     _pushUndo();
     for (final p in hint.placements) {
       cells[p.cell].value = p.digit;

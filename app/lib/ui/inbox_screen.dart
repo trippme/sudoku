@@ -98,7 +98,9 @@ class _InboxScreenState extends State<InboxScreen> {
                   tile: (r) => ListTile(
                     leading: Icon(
                       r.seen ? Icons.emoji_events_outlined : Icons.emoji_events,
-                      color: r.seen ? Colors.grey : const Color(0xFFF9A91C),
+                      color: r.seen
+                          ? Theme.of(context).colorScheme.onSurfaceVariant
+                          : const Color(0xFFF9A91C),
                     ),
                     title: Text(
                       '${r.fromName.isEmpty ? r.fromEmail : r.fromName} '
@@ -122,7 +124,9 @@ class _InboxScreenState extends State<InboxScreen> {
                   tile: (g) => ListTile(
                     leading: Icon(
                       g.seen ? Icons.mail_outline : Icons.mark_email_unread,
-                      color: g.seen ? Colors.grey : const Color(0xFF2E6FB7),
+                      color: g.seen
+                          ? Theme.of(context).colorScheme.onSurfaceVariant
+                          : Theme.of(context).colorScheme.primary,
                     ),
                     title: Text(
                       'Game #${g.gameId}',
@@ -186,7 +190,8 @@ class _Section<T> extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                 child: Text(empty,
-                    style: const TextStyle(color: Colors.black54)),
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant)),
               )
             else
               for (final item in snap.data!) tile(item),

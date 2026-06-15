@@ -132,7 +132,9 @@ class _Metric extends StatelessWidget {
       children: [
         Text(value, style: const TextStyle(fontSize: 24)),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(color: Colors.black54)),
+        Text(label,
+            style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant)),
       ],
     );
   }

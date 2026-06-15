@@ -15,6 +15,7 @@ import 'game_screen.dart';
 import 'stats_screen.dart';
 import 'settings_screen.dart';
 import 'inbox_screen.dart';
+import 'theme.dart';
 
 /// The main menu: resume any in-progress game, start a new one, daily, stats,
 /// settings. Multiple games can be in progress at once (issue #1, "ideal").
@@ -213,13 +214,13 @@ class _HomeMenuState extends State<HomeMenu> with WidgetsBindingObserver {
               padding: const EdgeInsets.all(24),
               children: [
                 const SizedBox(height: 12),
-                const Text(
+                Text(
                   'Sudoku',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 44,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF2E6FB7),
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -312,7 +313,9 @@ class _VersionFooter extends StatelessWidget {
           child: Text(
             '$version$kGitSha · $kBuildTime',
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 12, color: Colors.black38),
+            style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         );
       },
@@ -326,7 +329,9 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Text(text, style: const TextStyle(color: Colors.black54)),
+        child: Text(text,
+            style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant)),
       );
 }
 
@@ -346,11 +351,11 @@ class _InProgressTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: const Color(0xFFE7F0FB),
+      color: context.appColors.keypadBg,
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: ListTile(
         leading: Icon(summary.isDaily ? Icons.today : Icons.play_arrow,
-            color: const Color(0xFF2E6FB7)),
+            color: Theme.of(context).colorScheme.primary),
         title: Text(
           '${summary.isDaily ? 'Daily · ' : ''}${summary.difficulty.label}',
           style: const TextStyle(fontWeight: FontWeight.bold),

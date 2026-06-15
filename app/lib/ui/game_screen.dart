@@ -73,7 +73,7 @@ class _GameScreenState extends State<GameScreen> {
             children: [
               Text(
                 '${g.isDaily ? 'Daily · ' : ''}${g.difficulty.label} · Game #${g.gameId}',
-                style: const TextStyle(color: Colors.black54),
+                style: TextStyle(color: Theme.of(dctx).colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 12),
               _statRow('Time', _fmt(g.elapsed)),
@@ -327,14 +327,16 @@ class _GameScreenState extends State<GameScreen> {
                     children: [
                       Text(
                         '${game.isDaily ? 'Daily · ' : ''}Game #${game.gameId}',
-                        style: const TextStyle(
-                            fontSize: 14, color: Colors.black54),
+                        style: TextStyle(
+                            fontSize: 14,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
                       Text(
                         '${game.difficulty.label} · ${_fmt(game.elapsed)}'
                         '${game.hintsUsed > 0 ? ' · ${game.hintsUsed} hint${game.hintsUsed == 1 ? '' : 's'}' : ''}',
-                        style: const TextStyle(
-                            fontSize: 14, color: Colors.black54),
+                        style: TextStyle(
+                            fontSize: 14,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ),

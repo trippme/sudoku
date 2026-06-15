@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/game_state.dart';
+import 'theme.dart';
 
 /// Digit keypad plus tool buttons. The keypad mirrors the original
 /// "Enjoy Sudoku": a selected digit (or Erase) stays highlighted green so you
@@ -21,7 +22,7 @@ class ControlPad extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.green.shade100,
+                color: context.appColors.armed.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -110,17 +111,19 @@ class _DigitButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final done = remaining <= 0;
+    final colors = context.appColors;
+    final scheme = Theme.of(context).colorScheme;
     final Color bg;
     final Color fg;
     if (selected) {
-      bg = const Color(0xFF4CAF50); // green = armed (original behavior)
+      bg = colors.armed; // green = armed (original behavior)
       fg = Colors.white;
     } else if (done) {
-      bg = Colors.grey.shade200;
-      fg = Colors.grey;
+      bg = colors.doneBg;
+      fg = scheme.onSurfaceVariant;
     } else {
-      bg = const Color(0xFFE7F0FB);
-      fg = const Color(0xFF2E6FB7);
+      bg = colors.keypadBg;
+      fg = scheme.primary;
     }
     return Padding(
       padding: const EdgeInsets.all(2),
@@ -149,7 +152,7 @@ class _DigitButton extends StatelessWidget {
                   done ? '✓' : '$remaining',
                   style: TextStyle(
                     fontSize: 11,
-                    color: selected ? Colors.white70 : Colors.black45,
+                    color: selected ? Colors.white70 : scheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -178,18 +181,19 @@ class _Tool extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final color = !enabled
-        ? Colors.grey.shade400
+        ? scheme.onSurface.withValues(alpha: 0.38)
         : active
             ? Colors.white
-            : Colors.black87;
+            : scheme.onSurface;
     return InkWell(
       onTap: enabled ? onTap : null,
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFF4CAF50) : null,
+          color: active ? context.appColors.armed : null,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(

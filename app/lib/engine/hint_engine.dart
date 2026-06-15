@@ -1,13 +1,33 @@
 import 'sudoku_engine.dart';
 
+/// One step of a progressively-revealed hint (issue #42), mirroring the old
+/// app: first nudge ("examine the digit"), then the region, then the exact cell.
+/// Each stage also says what the board should highlight while it's shown.
+class HintStage {
+  final String text;
+  final int? focusDigit; // glow every cell holding this digit (yellow)
+  final List<int> house; // shade these cells (green) — the relevant region
+  final int? targetCell; // the answer cell, strongly highlighted
+
+  const HintStage(
+    this.text, {
+    this.focusDigit,
+    this.house = const [],
+    this.targetCell,
+  });
+}
+
 /// A single human-solving deduction, with an explanation the player can learn
-/// from. Either places a digit, eliminates candidates, or both.
+/// from. Either places a digit, eliminates candidates, or both. [stages] drives
+/// the progressive reveal UI; [title] is the short difficulty word shown above it.
 class Hint {
   final String technique; // e.g. "Hidden Single"
   final String explanation; // human-readable "why"
   final List<({int cell, int digit})> placements; // digits to write
   final List<({int cell, int digit})> eliminations; // marks to remove
   final List<int> highlight; // cells to emphasise in the UI
+  final String title; // difficulty word for the hint panel header
+  final List<HintStage> stages; // progressive reveal, vague → exact
 
   Hint({
     required this.technique,
@@ -15,6 +35,8 @@ class Hint {
     this.placements = const [],
     this.eliminations = const [],
     this.highlight = const [],
+    this.title = 'Hint',
+    this.stages = const [],
   });
 }
 
@@ -63,13 +85,26 @@ class HintEngine {
     for (var i = 0; i < 81; i++) {
       if (grid[i] == 0 && cands[i].length == 1) {
         final d = cands[i].first;
+        final peers = SudokuEngine.peers[i].toList();
         return Hint(
           technique: 'Naked Single',
+          title: 'Easy',
           explanation:
               '${_cellName(i)} can only be $d — every other digit already '
               'appears in its row, column, or box.',
           placements: [(cell: i, digit: d)],
           highlight: [i],
+          stages: [
+            HintStage('Examine the digit $d.', focusDigit: d),
+            HintStage(
+              'Naked Single: one empty cell has $d as its only option left — '
+              'its row, column, and box already use every other digit.',
+              focusDigit: d,
+              house: peers,
+            ),
+            HintStage('Only ${_cellName(i)} can be $d.',
+                focusDigit: d, house: peers, targetCell: i),
+          ],
         );
       }
     }
@@ -99,11 +134,22 @@ class HintEngine {
             };
             return Hint(
               technique: 'Hidden Single',
+              title: 'Moderate',
               explanation:
                   '$d can go in only one cell of $houseName: ${_cellName(spot)}. '
                   'So that cell must be $d.',
               placements: [(cell: spot, digit: d)],
               highlight: [spot, ...unit],
+              stages: [
+                HintStage('Examine the digit $d.', focusDigit: d),
+                HintStage(
+                  'Hidden Single ($label): where in $houseName can you put a $d?',
+                  focusDigit: d,
+                  house: unit,
+                ),
+                HintStage('Only ${_cellName(spot)} can be $d.',
+                    focusDigit: d, house: unit, targetCell: spot),
+              ],
             );
           }
         }
@@ -130,11 +176,27 @@ class HintEngine {
           if (elim.isNotEmpty) {
             return Hint(
               technique: 'Locked Candidate (Pointing)',
+              title: 'Tricky',
               explanation:
                   'In ${_boxName(spots.first)}, $d only fits along ${_rowName(spots.first)}. '
                   'So $d can be removed from the rest of that row.',
               eliminations: elim,
               highlight: spots,
+              stages: [
+                HintStage('Examine the digit $d.', focusDigit: d),
+                HintStage(
+                  'Locked Candidate: in ${_boxName(spots.first)}, $d only fits '
+                  'along ${_rowName(spots.first)}.',
+                  focusDigit: d,
+                  house: spots,
+                ),
+                HintStage(
+                  'So $d can be removed as a pencil mark from the rest of '
+                  '${_rowName(spots.first)} (outside that box).',
+                  focusDigit: d,
+                  house: [for (final e in elim) e.cell],
+                ),
+              ],
             );
           }
         }
@@ -150,11 +212,27 @@ class HintEngine {
           if (elim.isNotEmpty) {
             return Hint(
               technique: 'Locked Candidate (Pointing)',
+              title: 'Tricky',
               explanation:
                   'In ${_boxName(spots.first)}, $d only fits along ${_colName(spots.first)}. '
                   'So $d can be removed from the rest of that column.',
               eliminations: elim,
               highlight: spots,
+              stages: [
+                HintStage('Examine the digit $d.', focusDigit: d),
+                HintStage(
+                  'Locked Candidate: in ${_boxName(spots.first)}, $d only fits '
+                  'along ${_colName(spots.first)}.',
+                  focusDigit: d,
+                  house: spots,
+                ),
+                HintStage(
+                  'So $d can be removed as a pencil mark from the rest of '
+                  '${_colName(spots.first)} (outside that box).',
+                  focusDigit: d,
+                  house: [for (final e in elim) e.cell],
+                ),
+              ],
             );
           }
         }
@@ -190,12 +268,27 @@ class HintEngine {
                 };
                 return Hint(
                   technique: 'Naked Pair',
+                  title: 'Tricky',
                   explanation:
                       '${_cellName(twos[a])} and ${_cellName(twos[b])} in $houseName both '
                       'hold only ${pair[0]} and ${pair[1]}. Those two digits are locked to '
                       'those cells, so they can be removed from the rest of the $label.',
                   eliminations: elim,
                   highlight: [twos[a], twos[b]],
+                  stages: [
+                    HintStage(
+                        'Examine the digits ${pair[0]} and ${pair[1]}.'),
+                    HintStage(
+                      'Naked Pair: ${_cellName(twos[a])} and ${_cellName(twos[b])} in '
+                      '$houseName both hold only ${pair[0]} and ${pair[1]}.',
+                      house: [twos[a], twos[b]],
+                    ),
+                    HintStage(
+                      'Those two digits are locked to those cells, so remove them '
+                      'as pencil marks from the rest of the $label.',
+                      house: [for (final e in elim) e.cell],
+                    ),
+                  ],
                 );
               }
             }

@@ -173,6 +173,15 @@ class _CellView extends StatelessWidget {
   }
 
   Color _background(GameState game, int index, int? selected, AppColors colors) {
+    // While a hint is being revealed, its highlights take precedence: the exact
+    // answer cell, then the relevant region (green), then every cell holding the
+    // examined digit (yellow).
+    if (game.hintTargetCell == index) return colors.hintTarget;
+    if (game.hintHouse.contains(index)) return colors.hintHouse;
+    if (game.hintFocusDigit != null &&
+        game.cells[index].value == game.hintFocusDigit) {
+      return colors.highlightSame;
+    }
     if (selected == index && selected != null) {
       return colors.cellSelected; // selected cell
     }

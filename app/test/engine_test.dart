@@ -48,6 +48,18 @@ void main() {
       expect(hint.placements.first.digit, puzzle.solution[40]);
     });
 
+    test('a placement hint reveals progressively (issue #42)', () {
+      final puzzle = SudokuEngine(7).generate(Difficulty.easy);
+      final g = List<int>.from(puzzle.solution)..[40] = 0;
+      final hint = HintEngine.nextHint(g)!;
+      // Stages escalate: a digit nudge first, the exact cell only at the end.
+      expect(hint.stages.length, greaterThanOrEqualTo(2));
+      expect(hint.stages.first.focusDigit, puzzle.solution[40]);
+      expect(hint.stages.first.targetCell, isNull);
+      expect(hint.stages.last.targetCell, 40);
+      expect(hint.title, isNotEmpty);
+    });
+
     test('returns null on a full grid', () {
       final engine = SudokuEngine(3);
       final full = engine.solve(List<int>.filled(81, 0))!;

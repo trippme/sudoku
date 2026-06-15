@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../engine/sudoku_engine.dart';
+import '../engine/hint_engine.dart';
 import '../models/game_state.dart';
 import '../models/profile.dart';
 import '../services/leaderboard.dart';
@@ -270,26 +271,66 @@ class _GameScreenState extends State<GameScreen> {
       return;
     }
 
-    showDialog(
+    // Progressive reveal (issue #42): examine the digit → the region → the exact
+    // cell, with Back / More / Done. The board highlights follow each stage.
+    final stages = hint.stages.isNotEmpty
+        ? hint.stages
+        : [HintStage(hint.explanation)]; // fallback: one-shot explanation
+    game.noteHintUsed(); // count one consulted hint per opening
+
+    void applyStage(int i) {
+      final s = stages[i];
+      game.showHintStage(
+          digit: s.focusDigit, house: s.house, cell: s.targetCell);
+    }
+
+    var stage = 0;
+    applyStage(0);
+
+    await showDialog<void>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text(hint.technique),
-        content: Text(hint.explanation),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-          FilledButton(
-            onPressed: () {
-              game.applyHint(hint);
-              Navigator.pop(context);
-            },
-            child: Text(hint.placements.isNotEmpty ? 'Place it' : 'Apply'),
-          ),
-        ],
+      builder: (dctx) => StatefulBuilder(
+        builder: (dctx, setLocal) {
+          final isLast = stage == stages.length - 1;
+          final canPlace = isLast && hint.placements.isNotEmpty;
+          return AlertDialog(
+            title: Text(hint.title),
+            content: Text(stages[stage].text),
+            actions: [
+              if (stage > 0)
+                TextButton(
+                  onPressed: () {
+                    applyStage(--stage);
+                    setLocal(() {});
+                  },
+                  child: const Text('Back'),
+                ),
+              if (!isLast)
+                FilledButton(
+                  onPressed: () {
+                    applyStage(++stage);
+                    setLocal(() {});
+                  },
+                  child: const Text('More'),
+                ),
+              if (canPlace)
+                FilledButton(
+                  onPressed: () {
+                    game.applyHint(hint);
+                    Navigator.pop(dctx);
+                  },
+                  child: const Text('Place it'),
+                ),
+              TextButton(
+                onPressed: () => Navigator.pop(dctx),
+                child: const Text('Done'),
+              ),
+            ],
+          );
+        },
       ),
     );
+    game.clearHintHighlight();
   }
 
   @override

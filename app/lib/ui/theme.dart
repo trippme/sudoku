@@ -17,6 +17,8 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color keypadBg; // an unselected digit/tool button
   final Color doneBg; // a fully-placed digit button
   final Color armed; // green: armed digit / active tool (same in both)
+  final Color hintHouse; // a hint's highlighted region (green)
+  final Color hintTarget; // a hint's exact answer cell (stronger green)
 
   const AppColors({
     required this.gridLine,
@@ -28,6 +30,8 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.keypadBg,
     required this.doneBg,
     required this.armed,
+    required this.hintHouse,
+    required this.hintTarget,
   });
 
   static const light = AppColors(
@@ -40,6 +44,8 @@ class AppColors extends ThemeExtension<AppColors> {
     keypadBg: Color(0xFFE7F0FB),
     doneBg: Color(0xFFEEEEEE),
     armed: Color(0xFF4CAF50),
+    hintHouse: Color(0xFFC5E8C9),
+    hintTarget: Color(0xFF80C784),
   );
 
   static const dark = AppColors(
@@ -52,6 +58,8 @@ class AppColors extends ThemeExtension<AppColors> {
     keypadBg: Color(0xFF263246),
     doneBg: Color(0xFF222936),
     armed: Color(0xFF43A047),
+    hintHouse: Color(0xFF2E4632),
+    hintTarget: Color(0xFF3E7A48),
   );
 
   @override
@@ -65,6 +73,8 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? keypadBg,
     Color? doneBg,
     Color? armed,
+    Color? hintHouse,
+    Color? hintTarget,
   }) =>
       AppColors(
         gridLine: gridLine ?? this.gridLine,
@@ -76,6 +86,8 @@ class AppColors extends ThemeExtension<AppColors> {
         keypadBg: keypadBg ?? this.keypadBg,
         doneBg: doneBg ?? this.doneBg,
         armed: armed ?? this.armed,
+        hintHouse: hintHouse ?? this.hintHouse,
+        hintTarget: hintTarget ?? this.hintTarget,
       );
 
   @override
@@ -91,6 +103,8 @@ class AppColors extends ThemeExtension<AppColors> {
       keypadBg: Color.lerp(keypadBg, other.keypadBg, t)!,
       doneBg: Color.lerp(doneBg, other.doneBg, t)!,
       armed: Color.lerp(armed, other.armed, t)!,
+      hintHouse: Color.lerp(hintHouse, other.hintHouse, t)!,
+      hintTarget: Color.lerp(hintTarget, other.hintTarget, t)!,
     );
   }
 }

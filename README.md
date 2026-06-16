@@ -16,24 +16,35 @@ Repo: https://github.com/trippme/sudoku
 │   ├── lib/
 │   │   ├── engine/
 │   │   │   ├── sudoku_engine.dart   # solver, uniqueness, generator, rater
-│   │   │   └── hint_engine.dart     # explanatory human-technique hints
+│   │   │   └── hint_engine.dart     # progressive human-technique hints
 │   │   ├── models/
 │   │   │   ├── game_state.dart      # play state, input model, persistence
-│   │   │   ├── settings.dart        # user settings (persisted)
+│   │   │   ├── settings.dart        # user settings, incl. theme + daily diff.
+│   │   │   ├── profile.dart         # name/email identity + friends
 │   │   │   └── stats.dart           # stats + daily streak (persisted)
 │   │   ├── services/
 │   │   │   ├── storage.dart         # shared_preferences wrapper
-│   │   │   ├── daily.dart           # deterministic daily puzzle
-│   │   │   └── leaderboard.dart     # pluggable leaderboard (local/remote)
+│   │   │   ├── game_catalog.dart    # game# → puzzle, daily, difficulty bands
+│   │   │   ├── leaderboard.dart     # remote leaderboard / friends / inbox
+│   │   │   ├── notifications.dart   # local notifications + new-item dedup
+│   │   │   ├── background.dart      # WorkManager background poll (Android)
+│   │   │   └── push.dart            # optional Firebase Cloud Messaging
 │   │   ├── ui/
-│   │   │   ├── home_menu.dart        sudoku_grid.dart   control_pad.dart
+│   │   │   ├── home_menu.dart        sudoku_grid.dart      control_pad.dart
 │   │   │   ├── game_screen.dart      settings_screen.dart  stats_screen.dart
+│   │   │   ├── leaderboard_screen.dart  inbox_screen.dart
+│   │   │   └── theme.dart            # light/dark themes + board colour palette
 │   │   └── main.dart
-│   └── test/                 # engine, input-model, and daily tests
-├── server/                   # optional no-auth PHP backend (leaderboard etc.)
-├── docs/backend.md           # backend design notes
-├── webplay.html              # original web UI (reference)
-├── webplay/                  # original Sudoku.js (minified) + Sudoku.css
+│   └── test/                 # engine, input-model, daily, notification tests
+├── server/                   # no-auth PHP backend (leaderboard, inbox, push)
+│   ├── index.php             # the API (routes, rate limiting, API key)
+│   ├── fcm.php               # Firebase Cloud Messaging sender (HTTP v1)
+│   ├── config.php            # DB + API key + Firebase config
+│   └── data/                 # SQLite DB + secrets (git-ignored, web-blocked)
+├── deploy.bat / sideload.bat # Windows: sync + build + install to phones
+├── distribute.bat            # Windows: build + push to Firebase App Distribution
+├── docs/                     # backend, release, store, push, distribution guides
+├── webplay.html  webplay/    # original web UI + minified Sudoku.js (reference)
 ├── images/                   # original art assets (reference)
 └── README.md
 ```
@@ -103,7 +114,8 @@ web host is separate — that's just uploading `server/`.)
   - **Digit, then cell** / **Cell, then digit** modes.
 - Tapping a digit already in a cell **removes it** (toggle). **Erase** is a
   selectable mode (not a one-shot).
-- **Pencil marks** (manual) and **Auto** (fill all candidate marks).
+- **Pencil marks** (manual) and **Auto** — a toggle that fills every empty
+  cell's candidate marks, and clears them again when tapped off.
 - **Highlighting** like the original: the active digit's cells glow yellow and
   its pencil-marks glow pink; the selected cell's row/column/box are shaded
   (disabled while placing with an armed digit — it just fills the number).
@@ -113,19 +125,29 @@ web host is separate — that's just uploading `server/`.)
 - **Undo / Redo** with full history.
 - **Mistake marking** (Settings): Off, Conflicts only (logical duplicates), or
   Against solution.
+- **Dark mode** (Settings → Appearance): Match system (default), Light, or Dark.
+  The whole board — grid, keypad, highlights — is theme-aware, not just the
+  Material chrome.
 - **Timer** and a "🎉 Solved!" finish.
 
-**Explanatory hints**
-- The Hint button detects the next logical step — Naked Single, Hidden Single,
-  Locked Candidate (pointing), Naked Pair — and **explains the reasoning**
-  (e.g. *"R7C1 can only be 7 — every other digit already appears in its row,
-  column, or box"*), then offers to place it. Falls back to revealing the
-  selected cell when no basic technique applies.
+**Progressive hints** (like the original)
+- The Hint button reveals in escalating stages with **Back / More / Done**,
+  shown in a bottom sheet so the board stays visible:
+  1. *"Examine the digit 7."* — every 7 on the board glows.
+  2. *"Hidden Single (box): where in box 5 can you put a 7?"* — the region
+     shades green.
+  3. *"Only R6C4 can be 7."* — the answer cell is highlighted; **Place it** fills
+     it, or close it and place it yourself.
+- It leads with the **easiest-to-spot** technique (a box-scan hidden single
+  before a naked single) and supports Hidden/Naked Single, Locked Candidate
+  (pointing), and Naked Pair. Falls back to revealing the selected cell when no
+  basic technique applies.
 
 **Daily puzzle**
 - A **deterministic puzzle-of-the-day**, seeded by the date, so every device
-  gets the same puzzle with no server. Difficulty rotates by weekday
-  (Mon/Tue Easy → weekend Expert).
+  gets the same puzzle with no server. Its difficulty is a setting
+  (Settings → Daily puzzle): **Match the day** (weekday rotation, Mon/Tue easy →
+  weekend expert) or a fixed Easy/Medium/Hard/Expert.
 - **Daily streak** tracking with current/longest streak.
 
 **Statistics**
@@ -133,8 +155,10 @@ web host is separate — that's just uploading `server/`.)
 - Daily streak and a list of recent games.
 
 **Persistence** (via `shared_preferences`)
-- The in-progress game auto-saves continuously → a **Continue** button on the
-  home menu resumes it. Settings and stats persist across launches.
+- In-progress games auto-save continuously, one slot per difficulty band plus
+  one for the daily, so several games can be mid-flight at once — the home menu
+  lists them under **In Progress** to resume or discard. Settings and stats
+  persist across launches.
 
 **Online (optional — needs the backend deployed)**
 - Every game has a **shareable number** (the seed; it also encodes difficulty),
@@ -174,21 +198,39 @@ server for:
 `app/lib/engine/hint_engine.dart` reuses the same techniques to produce
 explained, structured hints (placements and candidate eliminations).
 
-## Optional backend (leaderboard, friends, history)
+## Backend (leaderboard, friends, inbox, push)
 
-The app needs no backend to play. An **optional** one adds cross-device social
-features: a shared leaderboard, friend competition on the same game number,
-sharing a game, and per-player history synced by email (no login).
+The app needs no backend to play, but one is **deployed and live** for the
+cross-device social features: a shared leaderboard, friend competition on the
+same game number, sending games to a friend's in-app inbox, per-player history
+synced by email (no login), and push notifications.
 
-Because puzzles are deterministic from their game number, the server stores
-**only results** — never puzzles or board state — so it's tiny and free to host.
-A ready-to-deploy implementation lives in [`server/`](server): a no-auth **PHP**
-API (SQLite by default, MySQL optional) for ordinary web hosting. The client
-already speaks its contract via `lib/services/leaderboard.dart`
-(`RemoteLeaderboard`, currently swapped out for a no-op `NullLeaderboard`).
+A single-file **PHP** API lives in [`server/`](server) (SQLite by default,
+MySQL optional — ordinary web hosting). Because puzzles are deterministic from
+their game number, the server stores **only results, shares, and device
+tokens** — never puzzles or board state — so it stays tiny. The client talks to
+it via `lib/services/leaderboard.dart` (`RemoteLeaderboard`) and
+`lib/services/push.dart`.
 
-See [`server/README.md`](server/README.md) to deploy and
-[`docs/backend.md`](docs/backend.md) for the design.
+Identity is **email only, no password** — deliberately, for a friends app. To
+keep that from being wide open, the API is hardened proportionately:
+
+- **API key** on every route (except `health`) via an `X-Api-Key` header. The
+  key lives in `server/data/api-key.txt` (git-ignored, web-blocked) and is
+  injected into the app at build time (`--dart-define`), so it's never in the
+  repo. A deterrent against drive-by/browser abuse — not strong auth, since it
+  ships in the APK.
+- **Per-IP rate limiting** (the real anti-abuse protection): a generous overall
+  cap plus tighter caps on the write routes most prone to spam.
+- **No CORS** advertised — the API is for the mobile app, so a browser on
+  another site can't drive it.
+- Prepared statements throughout (no SQL injection), input validation, HTTPS
+  only, and secrets (`api-key.txt`, the Firebase service-account key, the
+  SQLite DB) git-ignored and blocked from the web by `.htaccess`.
+
+See [`server/README.md`](server/README.md) to deploy, [`docs/backend.md`](docs/backend.md)
+for the design, and [`docs/PUSH_NOTIFICATIONS.md`](docs/PUSH_NOTIFICATIONS.md)
+for the optional Firebase Cloud Messaging setup.
 
 ## Recovered original server protocol (reference)
 
@@ -213,17 +255,28 @@ hint/rating brain lived on the server; in the rewrite it lives in
 
 `app/test/` covers the engine and gameplay:
 - `engine_test.dart` — generation is unique/solvable per difficulty, solver
-  correctness, hint-engine progress, daily determinism.
+  correctness, progressive hints (easiest-first, staged), daily determinism and
+  the daily-difficulty override.
 - `input_test.dart` — the hybrid/digit/cell input state machine, erase & pencil
-  modes, armed-placement (no cell selection), and group-completion flash.
+  modes, the auto-pencil toggle, armed-placement, and group-completion flash.
+- `notification_service_test.dart` — the "what's new since last poll"
+  high-water-mark dedup logic.
 - `widget_test.dart` — generator/solver smoke tests.
 
 ## Status
 
-Playable on Android (verified on a Pixel 5 emulator), iOS, web, and desktop.
-Faithful gameplay mechanics with a clean modern look.
+Playable and **in active beta** on Android, distributed to testers via Firebase
+App Distribution (`distribute.bat`). Also runs on iOS, web, and desktop.
+
+Live and verified:
+- Full faithful gameplay, progressive hints, dark mode, per-difficulty saves.
+- Backend deployed to a PHP host: leaderboard, friends, inbox, history.
+- Push notifications via Firebase Cloud Messaging (instant, app-closed) with a
+  polling fallback.
+- API hardened (key + per-IP rate limiting + locked-down CORS).
 
 ### Possible next steps
-- Wire a real leaderboard backend (needs a cloud account; see `docs/backend.md`).
+- **iOS push:** add an APNs key in Firebase + the Push capability (the code path
+  is already cross-platform).
+- Store submission (Google Play / App Store) — see the `docs/` guides.
 - More solving techniques (X-Wing, XY-Wing) for richer hints and finer rating.
-- Store-release prep: app icon, launch screen, signing.

@@ -44,12 +44,15 @@ class Hint {
 /// the difficulty rater. Operates on the current filled values (it derives
 /// candidates itself, so it is not fooled by the player's pencil marks).
 class HintEngine {
-  /// Returns the next deduction, or null if no supported technique applies.
+  /// Returns the next deduction, ordered easiest-to-spot first (issue #42
+  /// feedback). A hidden single — "scan a box: where can this digit go?" — is
+  /// how people naturally find a move, so it's offered before a naked single
+  /// (which needs you to check one cell against its whole row, column, and box).
   static Hint? nextHint(List<int> grid) {
     final cands = _candidates(grid);
 
-    return _nakedSingle(grid, cands) ??
-        _hiddenSingle(grid, cands) ??
+    return _hiddenSingle(grid, cands) ??
+        _nakedSingle(grid, cands) ??
         _lockedCandidates(cands) ??
         _nakedPair(cands);
   }
@@ -97,8 +100,9 @@ class HintEngine {
           stages: [
             HintStage('Examine the digit $d.', focusDigit: d),
             HintStage(
-              'Naked Single: one empty cell has $d as its only option left — '
-              'its row, column, and box already use every other digit.',
+              'One empty cell can only be $d — its row, column, and box already '
+              'contain every other digit, so nothing else fits. (A "naked '
+              'single".)',
               focusDigit: d,
               house: peers,
             ),
@@ -112,10 +116,11 @@ class HintEngine {
   }
 
   static Hint? _hiddenSingle(List<int> grid, List<Set<int>> cands) {
+    // Box first: cross-hatching a box is the most natural way to spot a move.
     for (final (label, units) in [
+      ('box', _boxes),
       ('row', _rows),
       ('column', _cols),
-      ('box', _boxes),
     ]) {
       for (final unit in units) {
         for (var d = 1; d <= 9; d++) {
@@ -134,7 +139,7 @@ class HintEngine {
             };
             return Hint(
               technique: 'Hidden Single',
-              title: 'Moderate',
+              title: 'Easy',
               explanation:
                   '$d can go in only one cell of $houseName: ${_cellName(spot)}. '
                   'So that cell must be $d.',

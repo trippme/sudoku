@@ -52,6 +52,9 @@ void main() {
       final puzzle = SudokuEngine(7).generate(Difficulty.easy);
       final g = List<int>.from(puzzle.solution)..[40] = 0;
       final hint = HintEngine.nextHint(g)!;
+      // Easiest-to-spot first: a lone empty cell is offered as a hidden single
+      // (scan the box), not a naked single (issue #42 feedback).
+      expect(hint.technique, 'Hidden Single');
       // Stages escalate: a digit nudge first, the exact cell only at the end.
       expect(hint.stages.length, greaterThanOrEqualTo(2));
       expect(hint.stages.first.focusDigit, puzzle.solution[40]);

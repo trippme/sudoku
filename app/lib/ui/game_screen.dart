@@ -287,45 +287,68 @@ class _GameScreenState extends State<GameScreen> {
     var stage = 0;
     applyStage(0);
 
-    await showDialog<void>(
+    // Show the hint in a bottom sheet — NOT a centered dialog — with a
+    // transparent barrier, so the board (and its hint highlights) stays fully
+    // visible and bright above it (issue #42 feedback: the dialog covered the
+    // board).
+    await showModalBottomSheet<void>(
       context: context,
-      builder: (dctx) => StatefulBuilder(
-        builder: (dctx, setLocal) {
+      barrierColor: Colors.transparent,
+      showDragHandle: true,
+      builder: (sctx) => StatefulBuilder(
+        builder: (sctx, setLocal) {
           final isLast = stage == stages.length - 1;
           final canPlace = isLast && hint.placements.isNotEmpty;
-          return AlertDialog(
-            title: Text(hint.title),
-            content: Text(stages[stage].text),
-            actions: [
-              if (stage > 0)
-                TextButton(
-                  onPressed: () {
-                    applyStage(--stage);
-                    setLocal(() {});
-                  },
-                  child: const Text('Back'),
-                ),
-              if (!isLast)
-                FilledButton(
-                  onPressed: () {
-                    applyStage(++stage);
-                    setLocal(() {});
-                  },
-                  child: const Text('More'),
-                ),
-              if (canPlace)
-                FilledButton(
-                  onPressed: () {
-                    game.applyHint(hint);
-                    Navigator.pop(dctx);
-                  },
-                  child: const Text('Place it'),
-                ),
-              TextButton(
-                onPressed: () => Navigator.pop(dctx),
-                child: const Text('Done'),
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(hint.title,
+                      style: Theme.of(sctx).textTheme.titleLarge),
+                  const SizedBox(height: 8),
+                  Text(stages[stage].text,
+                      style: Theme.of(sctx).textTheme.bodyLarge),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      if (stage > 0)
+                        TextButton(
+                          onPressed: () {
+                            applyStage(--stage);
+                            setLocal(() {});
+                          },
+                          child: const Text('Back'),
+                        ),
+                      if (!isLast)
+                        FilledButton.tonal(
+                          onPressed: () {
+                            applyStage(++stage);
+                            setLocal(() {});
+                          },
+                          child: const Text('More'),
+                        ),
+                      if (canPlace)
+                        FilledButton(
+                          onPressed: () {
+                            game.applyHint(hint);
+                            Navigator.pop(sctx);
+                          },
+                          child: const Text('Place it'),
+                        ),
+                      const SizedBox(width: 4),
+                      TextButton(
+                        onPressed: () => Navigator.pop(sctx),
+                        child: const Text('Done'),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
+            ),
           );
         },
       ),

@@ -48,18 +48,21 @@ class AppColors extends ThemeExtension<AppColors> {
     hintTarget: Color(0xFF80C784),
   );
 
+  // Brighter/more-saturated than a flat near-black so the board has life and the
+  // highlights pop, while keeping white digits readable on the tinted cells
+  // (issue #47).
   static const dark = AppColors(
-    gridLine: Color(0xFF727A86),
-    cellBg: Color(0xFF1B2230),
-    cellSelected: Color(0xFF31507A),
-    cellPeer: Color(0xFF263246),
-    highlightSame: Color(0xFF5E5320),
-    highlightPencil: Color(0xFF532E45),
-    keypadBg: Color(0xFF263246),
-    doneBg: Color(0xFF222936),
-    armed: Color(0xFF43A047),
-    hintHouse: Color(0xFF2E4632),
-    hintTarget: Color(0xFF3E7A48),
+    gridLine: Color(0xFF8A95A4),
+    cellBg: Color(0xFF222B3C),
+    cellSelected: Color(0xFF3D6098),
+    cellPeer: Color(0xFF324158),
+    highlightSame: Color(0xFF8A6F16), // gold, not muddy olive
+    highlightPencil: Color(0xFF8E3A6A), // vivid pink
+    keypadBg: Color(0xFF2C3A50),
+    doneBg: Color(0xFF2A3242),
+    armed: Color(0xFF4CAF50),
+    hintHouse: Color(0xFF3C6044),
+    hintTarget: Color(0xFF50A05E),
   );
 
   @override

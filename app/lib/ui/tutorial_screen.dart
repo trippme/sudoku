@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../tutorial/tutorial_content.dart';
+import 'theme.dart';
 
 /// The offline "Learn" section (issue #49): an index of guides written for this
 /// app and structured after Sudopedia, with links back to Sudopedia as the
@@ -62,7 +63,7 @@ class TutorialSectionScreen extends StatelessWidget {
                   color: Theme.of(context).colorScheme.onSurfaceVariant)),
           const SizedBox(height: 16),
           if (single) ...[
-            ...renderTutorialMarkup(context, section.articles.first.body),
+            ...renderArticleContent(context, section.articles.first.content),
           ] else
             for (final a in section.articles)
               Card(
@@ -97,7 +98,7 @@ class _ArticleScreen extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(
             16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
         children: [
-          ...renderTutorialMarkup(context, article.body),
+          ...renderArticleContent(context, article.content),
           const SizedBox(height: 8),
           _ReferenceLink(url: referenceUrl),
         ],
@@ -270,4 +271,118 @@ List<Widget> renderTutorialMarkup(BuildContext context, String body) {
   flushBullets();
   flushCode();
   return out;
+}
+
+/// Renders an article's content blocks: text via [renderTutorialMarkup], and
+/// any [GridDiagram] as a small example board.
+List<Widget> renderArticleContent(BuildContext context, List<Object> content) {
+  final out = <Widget>[];
+  for (final block in content) {
+    if (block is GridDiagram) {
+      out.add(_DiagramView(block));
+    } else if (block is String) {
+      out.addAll(renderTutorialMarkup(context, block));
+    }
+  }
+  return out;
+}
+
+/// A small, read-only example board for the tutorials: digits, candidate-mark
+/// overlays, and highlighted cells (theme-aware via [AppColors]).
+class _DiagramView extends StatelessWidget {
+  final GridDiagram d;
+  const _DiagramView(this.d);
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final scheme = Theme.of(context).colorScheme;
+    Color bg(int i) => switch (d.hi[i]) {
+          DiagramHi.region => colors.hintHouse,
+          DiagramHi.focus => colors.highlightSame,
+          DiagramHi.target => colors.hintTarget,
+          DiagramHi.eliminate => colors.highlightPencil,
+          _ => colors.cellBg,
+        };
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        children: [
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 300),
+              child: AspectRatio(
+                aspectRatio: 1,
+                child: Container(
+                  decoration: BoxDecoration(
+                      border: Border.all(color: colors.gridLine, width: 2)),
+                  child: Column(
+                    children: [
+                      for (var r = 0; r < 9; r++)
+                        Expanded(
+                          child: Row(
+                            children: [
+                              for (var c = 0; c < 9; c++)
+                                Expanded(
+                                    child: _cell(r * 9 + c, bg(r * 9 + c),
+                                        colors, scheme)),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (d.caption != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(d.caption!,
+                  style: TextStyle(
+                      fontSize: 13,
+                      height: 1.35,
+                      color: scheme.onSurfaceVariant)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _cell(int i, Color bg, AppColors colors, ColorScheme scheme) {
+    final r = i ~/ 9, c = i % 9;
+    final ch = d.flat[i];
+    final digit = ch != '.' ? ch : null;
+    final mark = d.marks[i];
+    return Container(
+      decoration: BoxDecoration(
+        color: bg,
+        border: Border(
+          right: BorderSide(
+              color: colors.gridLine,
+              width: (c % 3 == 2 && c != 8) ? 1.5 : 0.4),
+          bottom: BorderSide(
+              color: colors.gridLine,
+              width: (r % 3 == 2 && r != 8) ? 1.5 : 0.4),
+        ),
+      ),
+      alignment: Alignment.center,
+      child: digit != null
+          ? Text(digit,
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: scheme.onSurface))
+          : (mark != null
+              ? Padding(
+                  padding: const EdgeInsets.all(1.5),
+                  child: FittedBox(
+                    child: Text(mark,
+                        style: TextStyle(
+                            fontSize: 10, color: scheme.onSurfaceVariant)),
+                  ),
+                )
+              : const SizedBox.shrink()),
+    );
+  }
 }

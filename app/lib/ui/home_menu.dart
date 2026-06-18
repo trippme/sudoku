@@ -15,6 +15,7 @@ import 'game_screen.dart';
 import 'stats_screen.dart';
 import 'settings_screen.dart';
 import 'inbox_screen.dart';
+import 'tutorial_screen.dart';
 import 'theme.dart';
 
 /// The main menu: resume any in-progress game, start a new one, daily, stats,
@@ -279,6 +280,11 @@ class _HomeMenuState extends State<HomeMenu> with WidgetsBindingObserver {
                   icon: Icons.bar_chart,
                   label: 'Statistics',
                   onTap: () => _open(const StatsScreen()),
+                ),
+                _MenuButton(
+                  icon: Icons.school_outlined,
+                  label: 'How to Play',
+                  onTap: () => _open(const TutorialIndexScreen()),
                 ),
                 _MenuButton(
                   icon: Icons.settings,

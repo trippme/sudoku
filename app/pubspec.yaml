@@ -47,6 +47,9 @@ dependencies:
   # Reads the app version/build number baked into the binary.
   package_info_plus: ^8.1.0
 
+  # Open Sudopedia reference links in the browser from the Learn section.
+  url_launcher: ^6.3.1
+
   # Local (on-device) notifications for incoming challenges / friend results.
   flutter_local_notifications: ^18.0.1
 

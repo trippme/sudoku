@@ -270,4 +270,31 @@ void main() {
     expect(g.autoPencilOn, isFalse);
     expect(markedEmpties(), 0);
   });
+
+  test('a wrong number is hinted first, to remove (issue #52)', () {
+    final g = makeGame(InputMode.hybrid);
+    final cell = firstEmpty(g);
+    final wrong = (g.solution[cell] % 9) + 1; // a digit that isn't the answer
+    g.pressDigit(wrong);
+    g.pressCell(cell);
+    expect(g.cells[cell].value, wrong);
+
+    final hint = g.requestHint();
+    expect(hint, isNotNull);
+    expect(hint!.removeCell, cell, reason: 'should point at the wrong cell');
+    expect(hint.placements, isEmpty);
+
+    g.clearCellValue(cell);
+    expect(g.cells[cell].value, 0);
+  });
+
+  test('opening a hint clears the armed selection (issue #53)', () {
+    final g = makeGame(InputMode.hybrid);
+    g.pressDigit(5);
+    expect(g.selectionMode, 1);
+    expect(g.highlightDigit, 5);
+    g.clearSelection();
+    expect(g.selectionMode, 0);
+    expect(g.highlightDigit, isNull);
+  });
 }

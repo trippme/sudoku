@@ -63,6 +63,26 @@ void main() {
       expect(hint.title, isNotEmpty);
     });
 
+    test('a hint always places a digit — never an elimination-only step (#54)',
+        () {
+      for (final (seed, diff) in [
+        (11, Difficulty.easy),
+        (23, Difficulty.medium),
+        (42, Difficulty.hard),
+      ]) {
+        final grid = List<int>.from(SudokuEngine(seed).generate(diff).givens);
+        var guard = 0;
+        while (grid.contains(0) && guard++ < 300) {
+          final hint = HintEngine.nextHint(grid);
+          if (hint == null) break; // may need a technique beyond the app's set
+          expect(hint.placements, isNotEmpty,
+              reason: 'a hint should place a digit, not only eliminate');
+          final p = hint.placements.first;
+          grid[p.cell] = p.digit;
+        }
+      }
+    });
+
     test('returns null on a full grid', () {
       final engine = SudokuEngine(3);
       final full = engine.solve(List<int>.filled(81, 0))!;

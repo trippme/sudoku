@@ -461,10 +461,67 @@ class GameState extends ChangeNotifier {
 
   // ---- Hints ------------------------------------------------------------
 
-  /// Returns the next logical hint, or null if no supported technique applies.
+  /// Returns the next hint. A wrong entry is the most useful thing to fix, so
+  /// it's offered before any technique (issue #52) — and it's also what makes
+  /// the logical hints dead-end, so fixing it first avoids "running out".
   Hint? requestHint() {
+    final wrong = _firstWrongCell();
+    if (wrong != null) return _mistakeHint(wrong);
     final grid = [for (final c in cells) c.value];
     return HintEngine.nextHint(grid);
+  }
+
+  /// The first player-filled cell whose value disagrees with the solution, or
+  /// null. (Givens and empty cells are never "wrong".)
+  int? _firstWrongCell() {
+    if (solution.every((v) => v == 0)) return null; // no solution loaded
+    for (var i = 0; i < 81; i++) {
+      final c = cells[i];
+      if (!c.given && c.value != 0 && c.value != solution[i]) return i;
+    }
+    return null;
+  }
+
+  /// A progressive "you've got a wrong number — fix it first" hint (issue #52).
+  Hint _mistakeHint(int i) {
+    final v = cells[i].value;
+    final name = 'R${SudokuEngine.rowOf(i) + 1}C${SudokuEngine.colOf(i) + 1}';
+    final boxName = 'box ${SudokuEngine.boxOf(i) + 1}';
+    final box = [
+      for (var j = 0; j < 81; j++)
+        if (SudokuEngine.boxOf(j) == SudokuEngine.boxOf(i)) j
+    ];
+    return Hint(
+      technique: 'Mistake',
+      title: 'Fix this first',
+      explanation: '$name is $v, but that is not correct here. Remove it.',
+      removeCell: i,
+      highlight: [i],
+      stages: [
+        HintStage("One of the numbers you've placed is wrong — fix it before "
+            'looking for new moves.', focusDigit: v),
+        HintStage('It is in $boxName.', focusDigit: v, house: box),
+        HintStage('$name can\'t be $v. Remove it and carry on.',
+            focusDigit: v, house: box, targetCell: i),
+      ],
+    );
+  }
+
+  /// Clear the digit in [i] (used to undo a wrong placement from a hint).
+  void clearCellValue(int i) {
+    if (cells[i].given || _solved || cells[i].value == 0) return;
+    _pushUndo();
+    cells[i].value = 0;
+    _afterChange();
+  }
+
+  /// Drop the current digit/cell selection (issue #53: a hint shouldn't show
+  /// its own highlight on top of the armed digit's highlight).
+  void clearSelection() {
+    if (selectionMode == 0 && selectedCell == null) return;
+    selectionMode = 0;
+    selectedCell = null;
+    notifyListeners();
   }
 
   /// Drive the board highlight for the currently-shown hint stage.

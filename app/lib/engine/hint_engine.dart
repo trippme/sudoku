@@ -28,6 +28,7 @@ class Hint {
   final List<int> highlight; // cells to emphasise in the UI
   final String title; // difficulty word for the hint panel header
   final List<HintStage> stages; // progressive reveal, vague → exact
+  final int? removeCell; // a wrong entry to clear first (issue #52)
 
   Hint({
     required this.technique,
@@ -37,6 +38,7 @@ class Hint {
     this.highlight = const [],
     this.title = 'Hint',
     this.stages = const [],
+    this.removeCell,
   });
 }
 
@@ -44,17 +46,28 @@ class Hint {
 /// the difficulty rater. Operates on the current filled values (it derives
 /// candidates itself, so it is not fooled by the player's pencil marks).
 class HintEngine {
-  /// Returns the next deduction, ordered easiest-to-spot first (issue #42
-  /// feedback). A hidden single — "scan a box: where can this digit go?" — is
-  /// how people naturally find a move, so it's offered before a naked single
-  /// (which needs you to check one cell against its whole row, column, and box).
+  /// Returns the next hint — always a digit you can *place* when one is logically
+  /// reachable (issue #54: never end a hint run on an elimination with no number
+  /// to place). Easiest-to-spot first (issue #42): a hidden single (scan a box)
+  /// before a naked single.
+  ///
+  /// If no single is immediately visible, it quietly applies candidate
+  /// eliminations (pointing, claiming, naked pairs — the same techniques the
+  /// rater uses) until a cell is forced, then hints that placement honestly
+  /// rather than showing an elimination the player can't act on.
   static Hint? nextHint(List<int> grid) {
     final cands = _candidates(grid);
 
-    return _hiddenSingle(grid, cands) ??
-        _nakedSingle(grid, cands) ??
-        _lockedCandidates(cands) ??
-        _nakedPair(cands);
+    final direct = _hiddenSingle(grid, cands) ?? _nakedSingle(grid, cands);
+    if (direct != null) return direct;
+
+    final work = [for (final s in cands) Set<int>.of(s)];
+    for (var i = 0; i < 60; i++) {
+      if (!_eliminateOnce(work)) break;
+      final found = _anySingleCell(grid, work);
+      if (found != null) return _deducedHint(found.cell, found.digit);
+    }
+    return null; // needs a technique beyond this app's set (very rare here)
   }
 
   // ---- Human-friendly coordinate naming --------------------------------
@@ -163,145 +176,120 @@ class HintEngine {
     return null;
   }
 
-  static Hint? _lockedCandidates(List<Set<int>> cands) {
-    for (final box in _boxes) {
-      for (var d = 1; d <= 9; d++) {
-        final spots = box.where((c) => cands[c].contains(d)).toList();
-        if (spots.length < 2) continue;
-
-        // Pointing: all candidates in the box share a row → clear that row.
-        if (spots.every((c) => SudokuEngine.rowOf(c) == SudokuEngine.rowOf(spots.first))) {
-          final elim = <({int cell, int digit})>[];
-          for (final c in _rows[SudokuEngine.rowOf(spots.first)]) {
-            if (SudokuEngine.boxOf(c) != SudokuEngine.boxOf(spots.first) &&
-                cands[c].contains(d)) {
-              elim.add((cell: c, digit: d));
+  /// The cell + digit of any naked or hidden single in [cands], or null.
+  static ({int cell, int digit})? _anySingleCell(
+      List<int> grid, List<Set<int>> cands) {
+    for (var i = 0; i < 81; i++) {
+      if (grid[i] == 0 && cands[i].length == 1) {
+        return (cell: i, digit: cands[i].first);
+      }
+    }
+    for (final units in [_boxes, _rows, _cols]) {
+      for (final unit in units) {
+        for (var d = 1; d <= 9; d++) {
+          var spot = -1, count = 0;
+          for (final c in unit) {
+            if (grid[c] == 0 && cands[c].contains(d)) {
+              spot = c;
+              count++;
             }
           }
-          if (elim.isNotEmpty) {
-            return Hint(
-              technique: 'Locked Candidate (Pointing)',
-              title: 'Tricky',
-              explanation:
-                  'In ${_boxName(spots.first)}, $d only fits along ${_rowName(spots.first)}. '
-                  'So $d can be removed from the rest of that row.',
-              eliminations: elim,
-              highlight: spots,
-              stages: [
-                HintStage('Examine the digit $d.', focusDigit: d),
-                HintStage(
-                  'Locked Candidate: in ${_boxName(spots.first)}, $d only fits '
-                  'along ${_rowName(spots.first)}.',
-                  focusDigit: d,
-                  house: spots,
-                ),
-                HintStage(
-                  'So $d can be removed as a pencil mark from the rest of '
-                  '${_rowName(spots.first)} (outside that box).',
-                  focusDigit: d,
-                  house: [for (final e in elim) e.cell],
-                ),
-              ],
-            );
-          }
-        }
-        // Pointing along a column.
-        if (spots.every((c) => SudokuEngine.colOf(c) == SudokuEngine.colOf(spots.first))) {
-          final elim = <({int cell, int digit})>[];
-          for (final c in _cols[SudokuEngine.colOf(spots.first)]) {
-            if (SudokuEngine.boxOf(c) != SudokuEngine.boxOf(spots.first) &&
-                cands[c].contains(d)) {
-              elim.add((cell: c, digit: d));
-            }
-          }
-          if (elim.isNotEmpty) {
-            return Hint(
-              technique: 'Locked Candidate (Pointing)',
-              title: 'Tricky',
-              explanation:
-                  'In ${_boxName(spots.first)}, $d only fits along ${_colName(spots.first)}. '
-                  'So $d can be removed from the rest of that column.',
-              eliminations: elim,
-              highlight: spots,
-              stages: [
-                HintStage('Examine the digit $d.', focusDigit: d),
-                HintStage(
-                  'Locked Candidate: in ${_boxName(spots.first)}, $d only fits '
-                  'along ${_colName(spots.first)}.',
-                  focusDigit: d,
-                  house: spots,
-                ),
-                HintStage(
-                  'So $d can be removed as a pencil mark from the rest of '
-                  '${_colName(spots.first)} (outside that box).',
-                  focusDigit: d,
-                  house: [for (final e in elim) e.cell],
-                ),
-              ],
-            );
-          }
+          if (count == 1) return (cell: spot, digit: d);
         }
       }
     }
     return null;
   }
 
-  static Hint? _nakedPair(List<Set<int>> cands) {
-    for (final (label, units) in [
-      ('row', _rows),
-      ('column', _cols),
-      ('box', _boxes),
-    ]) {
+  /// A placement hint for a cell that is forced only after candidate
+  /// elimination — worded honestly (it doesn't claim to be a visible single).
+  static Hint _deducedHint(int i, int d) => Hint(
+        technique: 'Deduction',
+        title: 'Tricky',
+        explanation:
+            '${_cellName(i)} works out to $d once you eliminate candidates '
+            '(see the Solving Techniques guide).',
+        placements: [(cell: i, digit: d)],
+        highlight: [i],
+        stages: [
+          HintStage('Examine the digit $d.', focusDigit: d),
+          HintStage(
+            'No quick single here — but after ruling out candidates with the '
+            'pencil-mark techniques, $d is forced into one cell.',
+            focusDigit: d,
+          ),
+          HintStage('${_cellName(i)} must be $d.', focusDigit: d, targetCell: i),
+        ],
+      );
+
+  /// Apply one pass of candidate eliminations (pointing, claiming, naked pairs)
+  /// to [cands], mutating it. Returns true if any candidate was removed.
+  static bool _eliminateOnce(List<Set<int>> cands) {
+    var changed = false;
+
+    // Pointing: within a box, a digit confined to one row/column clears the
+    // rest of that line.
+    for (final box in _boxes) {
+      for (var d = 1; d <= 9; d++) {
+        final spots = box.where((c) => cands[c].contains(d)).toList();
+        if (spots.length < 2) continue;
+        if (spots.every((c) => SudokuEngine.rowOf(c) == SudokuEngine.rowOf(spots.first))) {
+          for (final c in _rows[SudokuEngine.rowOf(spots.first)]) {
+            if (SudokuEngine.boxOf(c) != SudokuEngine.boxOf(spots.first) &&
+                cands[c].remove(d)) {
+              changed = true;
+            }
+          }
+        }
+        if (spots.every((c) => SudokuEngine.colOf(c) == SudokuEngine.colOf(spots.first))) {
+          for (final c in _cols[SudokuEngine.colOf(spots.first)]) {
+            if (SudokuEngine.boxOf(c) != SudokuEngine.boxOf(spots.first) &&
+                cands[c].remove(d)) {
+              changed = true;
+            }
+          }
+        }
+      }
+    }
+
+    // Claiming: within a row/column, a digit confined to one box clears the
+    // rest of that box.
+    for (final units in [_rows, _cols]) {
+      for (final unit in units) {
+        for (var d = 1; d <= 9; d++) {
+          final spots = unit.where((c) => cands[c].contains(d)).toList();
+          if (spots.length < 2) continue;
+          if (spots.every((c) => SudokuEngine.boxOf(c) == SudokuEngine.boxOf(spots.first))) {
+            for (final c in _boxes[SudokuEngine.boxOf(spots.first)]) {
+              if (!unit.contains(c) && cands[c].remove(d)) changed = true;
+            }
+          }
+        }
+      }
+    }
+
+    // Naked pairs: two cells in a unit holding the same two candidates clear
+    // those digits from the unit's other cells.
+    for (final units in [_rows, _cols, _boxes]) {
       for (final unit in units) {
         final twos = unit.where((c) => cands[c].length == 2).toList();
         for (var a = 0; a < twos.length; a++) {
           for (var b = a + 1; b < twos.length; b++) {
             if (_setEq(cands[twos[a]], cands[twos[b]])) {
-              final pair = cands[twos[a]].toList()..sort();
-              final elim = <({int cell, int digit})>[];
+              final pair = cands[twos[a]];
               for (final c in unit) {
                 if (c == twos[a] || c == twos[b]) continue;
                 for (final d in pair) {
-                  if (cands[c].contains(d)) elim.add((cell: c, digit: d));
+                  if (cands[c].remove(d)) changed = true;
                 }
-              }
-              if (elim.isNotEmpty) {
-                final houseName = switch (label) {
-                  'row' => _rowName(twos[a]),
-                  'column' => _colName(twos[a]),
-                  _ => _boxName(twos[a]),
-                };
-                return Hint(
-                  technique: 'Naked Pair',
-                  title: 'Tricky',
-                  explanation:
-                      '${_cellName(twos[a])} and ${_cellName(twos[b])} in $houseName both '
-                      'hold only ${pair[0]} and ${pair[1]}. Those two digits are locked to '
-                      'those cells, so they can be removed from the rest of the $label.',
-                  eliminations: elim,
-                  highlight: [twos[a], twos[b]],
-                  stages: [
-                    HintStage(
-                        'Examine the digits ${pair[0]} and ${pair[1]}.'),
-                    HintStage(
-                      'Naked Pair: ${_cellName(twos[a])} and ${_cellName(twos[b])} in '
-                      '$houseName both hold only ${pair[0]} and ${pair[1]}.',
-                      house: [twos[a], twos[b]],
-                    ),
-                    HintStage(
-                      'Those two digits are locked to those cells, so remove them '
-                      'as pencil marks from the rest of the $label.',
-                      house: [for (final e in elim) e.cell],
-                    ),
-                  ],
-                );
               }
             }
           }
         }
       }
     }
-    return null;
+
+    return changed;
   }
 
   static bool _setEq(Set<int> a, Set<int> b) =>

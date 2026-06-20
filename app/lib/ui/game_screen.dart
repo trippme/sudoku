@@ -244,6 +244,10 @@ class _GameScreenState extends State<GameScreen> {
     final hint = game.requestHint();
     if (!context.mounted) return;
 
+    // Drop the armed digit/cell so its highlight doesn't compete with the hint's
+    // own highlighting (issue #53).
+    game.clearSelection();
+
     if (hint == null) {
       showDialog(
         context: context,
@@ -299,6 +303,7 @@ class _GameScreenState extends State<GameScreen> {
         builder: (sctx, setLocal) {
           final isLast = stage == stages.length - 1;
           final canPlace = isLast && hint.placements.isNotEmpty;
+          final canRemove = isLast && hint.removeCell != null;
           return SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
@@ -330,6 +335,14 @@ class _GameScreenState extends State<GameScreen> {
                             setLocal(() {});
                           },
                           child: const Text('More'),
+                        ),
+                      if (canRemove)
+                        FilledButton(
+                          onPressed: () {
+                            game.clearCellValue(hint.removeCell!);
+                            Navigator.pop(sctx);
+                          },
+                          child: const Text('Remove it'),
                         ),
                       if (canPlace)
                         FilledButton(

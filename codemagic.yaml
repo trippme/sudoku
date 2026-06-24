@@ -1,0 +1,65 @@
+# Codemagic CI/CD — iOS build + TestFlight for the Sudoku app.
+#
+# The Flutter project lives in the app/ subfolder, so every script cd's into it.
+#
+# ── One-time setup in the Codemagic UI (Team settings / app settings) ──────────
+#  1. Integrations → App Store Connect API key: add your key (the one you use for
+#     Moxie's Matches is fine) and note its NAME. Put that name below where it
+#     says  app_store_connect: <ASC_API_KEY_NAME>.
+#  2. Environment variables → group "sudoku" (mark Secure):
+#       BACKEND_API_KEY   = contents of server/data/api-key.txt  (so the released
+#                           app authenticates against the key-protected backend)
+#  3. The bundle id  net.whimsicle.sudokuApp  must exist (or be auto-created by
+#     Codemagic's automatic signing) in your Apple Developer account.
+#
+# Build numbers come from Codemagic's monotonic $BUILD_NUMBER so every TestFlight
+# upload is unique; the marketing version comes from app/pubspec.yaml (1.0.0).
+
+workflows:
+  ios-testflight:
+    name: iOS — TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: <ASC_API_KEY_NAME>   # ← name of the API key set in Codemagic
+    environment:
+      groups:
+        - sudoku                               # provides BACKEND_API_KEY (secure)
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: net.whimsicle.sudokuApp
+    scripts:
+      - name: Flutter pub get
+        script: |
+          cd app
+          flutter pub get
+      - name: Set up code signing (fetch/apply provisioning profiles)
+        script: |
+          cd app/ios
+          xcode-project use-profiles
+      - name: CocoaPods install
+        script: |
+          cd app/ios
+          pod install
+      - name: Build signed IPA
+        script: |
+          cd app
+          flutter build ipa --release \
+            --build-number=$BUILD_NUMBER \
+            --dart-define=BACKEND_API_KEY="$BACKEND_API_KEY" \
+            --dart-define=GIT_SHA="$(git rev-parse --short HEAD)" \
+            --dart-define=BUILD_TIME="codemagic-$BUILD_NUMBER" \
+            --export-options-plist=$HOME/export_options.plist
+    artifacts:
+      - app/build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - app/flutter_drive.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        # Beta testers get it automatically; flip to App Store review when ready:
+        # submit_to_app_store: false

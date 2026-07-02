@@ -21,7 +21,7 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 60
     integrations:
-      app_store_connect: <ASC_API_KEY_NAME>   # ← name of the API key set in Codemagic
+      app_store_connect: 89PH6FS2V6   # ← name of the API key set in Codemagic
     environment:
       groups:
         - sudoku                               # provides BACKEND_API_KEY (secure)

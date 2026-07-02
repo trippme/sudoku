@@ -3,14 +3,21 @@
 # The Flutter project lives in the app/ subfolder, so every script cd's into it.
 #
 # ── One-time setup in the Codemagic UI (Team settings / app settings) ──────────
-#  1. Integrations → App Store Connect API key: add your key (the one you use for
-#     Moxie's Matches is fine) and note its NAME. Put that name below where it
-#     says  app_store_connect: <ASC_API_KEY_NAME>.
+#  1. Integrations → Developer Portal (App Store Connect API key): add your key
+#     and note its NAME. Put that name below at  app_store_connect: <name>.
 #  2. Environment variables → group "sudoku" (mark Secure):
-#       BACKEND_API_KEY   = contents of server/data/api-key.txt  (so the released
-#                           app authenticates against the key-protected backend)
-#  3. The bundle id  net.whimsicle.sudokuApp  must exist (or be auto-created by
-#     Codemagic's automatic signing) in your Apple Developer account.
+#       BACKEND_API_KEY         = contents of server/data/api-key.txt (so the
+#                                 released app authenticates against the backend)
+#       CERTIFICATE_PRIVATE_KEY = an RSA-2048 private key so `fetch-signing-files
+#                                 --create` can create/reuse the distribution
+#                                 certificate. Generate once with:
+#                                   ssh-keygen -t rsa -b 2048 -m PEM \
+#                                     -f codemagic_private_key -q -N ""
+#                                 then paste the contents of the `codemagic_private_key`
+#                                 file (the PRIVATE one, no .pub) as the value.
+#  3. The bundle id  net.whimsicle.sudokuApp  must be registered as an App ID in
+#     your Apple Developer account. The signing step below then creates the
+#     distribution certificate + provisioning profile for it automatically.
 #
 # Build numbers come from Codemagic's monotonic $BUILD_NUMBER so every TestFlight
 # upload is unique; the marketing version comes from app/pubspec.yaml (1.0.0).
@@ -24,20 +31,22 @@ workflows:
       app_store_connect: 89PH6FS2V6   # ← name of the API key set in Codemagic
     environment:
       groups:
-        - sudoku                               # provides BACKEND_API_KEY (secure)
+        - sudoku                               # BACKEND_API_KEY + CERTIFICATE_PRIVATE_KEY (secure)
       flutter: stable
       xcode: latest
       cocoapods: default
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: net.whimsicle.sudokuApp
     scripts:
       - name: Flutter pub get
         script: |
           cd app
           flutter pub get
-      - name: Set up code signing (fetch/apply provisioning profiles)
+      - name: Set up code signing (fetch + create cert & profile)
         script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "net.whimsicle.sudokuApp" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
           cd app/ios
           xcode-project use-profiles
       - name: CocoaPods install

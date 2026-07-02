@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
@@ -94,8 +95,12 @@ class PushService {
               'Content-Type': 'application/json',
               if (kBackendApiKey.isNotEmpty) 'X-Api-Key': kBackendApiKey,
             },
-            body: jsonEncode(
-                {'email': email, 'token': token, 'platform': 'android'}),
+            body: jsonEncode({
+              'email': email,
+              'token': token,
+              'platform':
+                  defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
+            }),
           )
           .timeout(const Duration(seconds: 8));
     } catch (_) {/* best effort */}

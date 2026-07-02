@@ -128,6 +128,11 @@ function fcm_send_one(string $accessToken, string $deviceToken, string $title, s
                 'priority'     => 'HIGH',
                 'notification' => ['channel_id' => 'sudoku_challenges'],
             ],
+            'apns'         => [
+                // apns-priority 10 = deliver immediately; sound so it alerts on iOS.
+                'headers' => ['apns-priority' => '10'],
+                'payload' => ['aps' => ['sound' => 'default']],
+            ],
         ],
     ];
     $resp = fcm_http_post(

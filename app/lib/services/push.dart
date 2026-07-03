@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:firebase_core/firebase_core.dart';
@@ -33,10 +34,12 @@ class PushService {
     try {
       await Firebase.initializeApp().timeout(const Duration(seconds: 10));
       _available = true;
-    } catch (_) {
+    } catch (e) {
       _available = false; // not configured / stalled → push off, polling covers us
+      unawaited(_debug('init FAILED: $e'));
       return;
     }
+    unawaited(_debug('init ok'));
 
     // Everything below is best-effort and runs on the startup path (main()
     // awaits init() before runApp()). On iOS these calls touch APNs
@@ -67,6 +70,7 @@ class PushService {
       // Keep the backend current if the token rotates.
       messaging.onTokenRefresh.listen((t) {
         _token = t;
+        unawaited(_debug('onTokenRefresh len=${t.length} email=${_email.isNotEmpty}'));
         if (_email.isNotEmpty) _post(t, _email);
       });
 
@@ -95,6 +99,7 @@ class PushService {
   /// Register this device's token with the backend for [email]. No-op when push
   /// is unavailable or there's no identity yet.
   static Future<void> registerToken(String email) async {
+    await _debug('registerToken email=${email.isNotEmpty} available=$_available');
     if (!_available || email.isEmpty) return;
     _email = email;
     try {
@@ -104,16 +109,46 @@ class PushService {
       // completed yet, so getToken() throws `apns-token-not-set` and we'd
       // register nothing (the bug behind "no iOS pushes" — the backend never
       // received an iOS token). Wait, bounded, for the APNs token first.
+      String? apns;
+      int waited = 0;
       if (defaultTargetPlatform == TargetPlatform.iOS) {
-        for (var i = 0; i < 15 && (await messaging.getAPNSToken()) == null; i++) {
+        for (var i = 0; i < 15 && (apns = await messaging.getAPNSToken()) == null; i++) {
           await Future.delayed(const Duration(seconds: 1));
+          waited = i + 1;
         }
       }
+      await _debug('apns=${apns != null ? "set(${apns.length})" : "null"} waited=${waited}s');
       _token ??= await messaging.getToken();
       final token = _token;
+      await _debug('fcm=${token != null ? "set(${token.length})" : "null"}');
       if (token == null || token.isEmpty) return;
       await _post(token, email);
-    } catch (_) {/* best effort; onTokenRefresh will catch a later token */}
+      await _debug('posted ok');
+    } catch (e) {
+      // best effort; onTokenRefresh will catch a later token
+      await _debug('ERROR: $e');
+    }
+  }
+
+  /// TEMPORARY diagnostic (issue #60): report push-pipeline state to the backend
+  /// so we can see where iOS token registration fails. Remove once resolved.
+  static Future<void> _debug(String info) async {
+    try {
+      final uri = Uri.parse('$kBackendBaseUrl/index.php')
+          .replace(queryParameters: {'r': 'push_debug'});
+      await http
+          .post(uri,
+              headers: {
+                'Content-Type': 'application/json',
+                if (kBackendApiKey.isNotEmpty) 'X-Api-Key': kBackendApiKey,
+              },
+              body: jsonEncode({
+                'email': _email,
+                'platform': defaultTargetPlatform.name,
+                'info': info,
+              }))
+          .timeout(const Duration(seconds: 6));
+    } catch (_) {/* diagnostics are best-effort */}
   }
 
   static Future<void> _post(String token, String email) async {

@@ -630,6 +630,30 @@ function route_notif_seen(): void
     json_out(['ok' => true]);
 }
 
+// TEMPORARY diagnostic for the iOS-push investigation (issue #60). Records the
+// client's push-pipeline state so we can see where iOS registration fails.
+// Remove (route + case + table) once resolved.
+function route_push_debug(): void
+{
+    $in  = body_json();
+    $pdo = db();
+    $pdo->exec('CREATE TABLE IF NOT EXISTS push_debug (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT NOT NULL DEFAULT "",
+        platform TEXT NOT NULL DEFAULT "",
+        info TEXT NOT NULL DEFAULT "",
+        created_at TEXT NOT NULL
+    )');
+    $pdo->prepare('INSERT INTO push_debug (email, platform, info, created_at) VALUES (?, ?, ?, ?)')
+        ->execute([
+            substr(strtolower(trim((string)($in['email'] ?? ''))), 0, 120),
+            substr(trim((string)($in['platform'] ?? '')), 0, 16),
+            substr(trim((string)($in['info'] ?? '')), 0, 600),
+            gmdate('Y-m-d H:i:s'),
+        ]);
+    json_out(['ok' => true]);
+}
+
 // ---- dispatch --------------------------------------------------------------
 
 try {
@@ -677,6 +701,9 @@ try {
             break;
         case 'notif_seen':
             route_notif_seen();
+            break;
+        case 'push_debug':
+            route_push_debug();
             break;
         default:
             fail('unknown route: ' . $r, 404);

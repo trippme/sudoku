@@ -8,7 +8,17 @@ import UIKit
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    // TEMPORARY (#60): the app never received an APNs token and no register
+    // callback fired, so registration isn't being attempted. Confirm native
+    // code runs and force APNs registration explicitly (the device token does
+    // not require notification permission). This yields a didRegister (token) or
+    // didFailToRegister (reason) below.
+    reportPushDebug("didFinishLaunching — calling registerForRemoteNotifications")
+    DispatchQueue.main.async {
+      application.registerForRemoteNotifications()
+    }
+    return result
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {

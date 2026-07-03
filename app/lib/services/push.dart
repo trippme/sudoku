@@ -98,11 +98,22 @@ class PushService {
     if (!_available || email.isEmpty) return;
     _email = email;
     try {
-      _token ??= await FirebaseMessaging.instance.getToken();
+      final messaging = FirebaseMessaging.instance;
+      // iOS only mints an FCM token once the APNs device token has been set,
+      // which happens asynchronously after registration. At startup that hasn't
+      // completed yet, so getToken() throws `apns-token-not-set` and we'd
+      // register nothing (the bug behind "no iOS pushes" — the backend never
+      // received an iOS token). Wait, bounded, for the APNs token first.
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        for (var i = 0; i < 15 && (await messaging.getAPNSToken()) == null; i++) {
+          await Future.delayed(const Duration(seconds: 1));
+        }
+      }
+      _token ??= await messaging.getToken();
       final token = _token;
       if (token == null || token.isEmpty) return;
       await _post(token, email);
-    } catch (_) {/* best effort */}
+    } catch (_) {/* best effort; onTokenRefresh will catch a later token */}
   }
 
   static Future<void> _post(String token, String email) async {

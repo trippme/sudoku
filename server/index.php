@@ -660,7 +660,9 @@ try {
     $r = $_GET['r'] ?? 'health';
     // health stays open + lightweight (for uptime checks). Everything else is
     // rate-limited per IP and requires the API key (when one is configured).
-    if ($r !== 'health') {
+    // push_debug is a TEMPORARY diagnostic (issue #60) also posted from native
+    // iOS code that can't read the dart-defined API key — exempt it like health.
+    if ($r !== 'health' && $r !== 'push_debug') {
         $pdo = db();
         enforce_rate_limits($pdo, (string)$r);
         require_api_key();

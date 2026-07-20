@@ -72,3 +72,67 @@ workflows:
         submit_to_testflight: true
         # Beta testers get it automatically; flip to App Store review when ready:
         # submit_to_app_store: false
+
+  # ── Ad Hoc: install directly on your own iPhone, no TestFlight ──────────────
+  # iOS won't let you install an App Store (release) build directly; an "Ad Hoc"
+  # build is the equivalent for named devices. It uses the PRODUCTION APNs
+  # environment (same as TestFlight), so push keeps working with the existing
+  # .p8 — no other changes needed.
+  #
+  # ONE-TIME prerequisite: your iPhone must be registered in the Apple Developer
+  # account, or the Ad Hoc profile won't include it and the .ipa won't install.
+  #   1. Get the device UDID (on Windows: connect the iPhone, open the Apple
+  #      Devices app or iTunes → click the device → click the Serial Number field
+  #      until it shows "UDID" → copy; or read it in Sideloadly / 3uTools).
+  #   2. developer.apple.com → Certificates, Identifiers & Profiles → Devices →
+  #      + → paste the UDID, name it, Continue/Register.
+  # (Adding a new device later requires re-running this build so the profile is
+  # regenerated to include it — fetch-signing-files --create handles that.)
+  #
+  # AFTER the build: download the .ipa from the build's Artifacts, then install
+  # on the iPhone from Windows with Sideloadly (https://sideloadly.io): plug in
+  # the phone, drag the .ipa in, sign in with your Apple ID, Start.
+  ios-adhoc:
+    name: iOS — Ad Hoc (direct install)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: Sudoku   # ← Codemagic integration NAME (not Apple's key id)
+    environment:
+      groups:
+        - sudoku                               # BACKEND_API_KEY + CERTIFICATE_PRIVATE_KEY (secure)
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Flutter pub get
+        script: |
+          cd app
+          flutter pub get
+      - name: Set up code signing (Ad Hoc profile — includes registered devices)
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "net.whimsicle.sudokuApp" \
+            --type IOS_APP_ADHOC \
+            --create
+          keychain add-certificates
+          cd app/ios
+          xcode-project use-profiles
+      - name: CocoaPods install
+        script: |
+          cd app/ios
+          pod install
+      - name: Build Ad Hoc IPA
+        script: |
+          cd app
+          flutter build ipa --release \
+            --build-number=$BUILD_NUMBER \
+            --dart-define=BACKEND_API_KEY="$BACKEND_API_KEY" \
+            --dart-define=GIT_SHA="$(git rev-parse --short HEAD)" \
+            --dart-define=BUILD_TIME="codemagic-adhoc-$BUILD_NUMBER" \
+            --export-options-plist=$HOME/export_options.plist
+    # No publishing block: the .ipa is downloaded from Artifacts and sideloaded,
+    # not sent to TestFlight.
+    artifacts:
+      - app/build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log

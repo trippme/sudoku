@@ -62,12 +62,19 @@ Firebase config).
 - **App icon** 1024×1024 (generated from `assets/icon/icon.png`).
 - **Privacy policy URL** (required) — host `server/privacy.html` publicly, e.g.
   `https://the949dude.com/sudoku/privacy.html`.
-- **App Privacy "nutrition labels"** — declare collected data:
+- **App Privacy "nutrition labels"** — declare collected data (must match
+  `server/privacy.html`):
   - **Contact info → Email address** (linked to identity).
   - **User content / Identifiers → Name**.
   - **Usage data** → game results tied to your email.
-  - Used for **App Functionality** (leaderboard/competition), **not** for
-    tracking or ads; **not shared** with third parties.
+  - **Identifiers → Device ID** → the push notification token (linked to email),
+    only if the user enables notifications.
+  - **Diagnostics / Identifiers → IP address** → used transiently for
+    rate-limiting/abuse-prevention, **not linked** to identity and not stored.
+  - Everything is used for **App Functionality** (leaderboard/competition),
+    **not** for tracking or ads; **not shared** with third parties.
+  - Ready-to-paste description/keywords/promo copy lives in
+    [`APP_STORE_LISTING.md`](APP_STORE_LISTING.md).
 - **Age rating** questionnaire → puzzle game, no objectionable content.
 
 ## TestFlight & review

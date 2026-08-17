@@ -27,24 +27,21 @@ Project facts referenced below:
 ---
 
 ## 1. Build the AAB
-From PowerShell:
+From the repo root:
 
-```powershell
-cd app
-$key = Get-Content ..\server\data\api-key.txt -Raw
-flutter build appbundle --release `
-  --dart-define=BACKEND_API_KEY=$key `
-  --dart-define=GIT_SHA=$(git rev-parse --short HEAD) `
-  --dart-define=BUILD_TIME=$(Get-Date -Format yyyy-MM-dd_HH:mm)
+```
+.\release.bat
 ```
 
-Output:
+It syncs to `main`, sets **versionCode = git commit count** (so every upload
+automatically has a higher versionCode than the last — no pubspec editing),
+injects the API key + build stamp, and prints the output path:
+
 ```
 app\build\app\outputs\bundle\release\app-release.aab
 ```
 
-(Optional: a `release.bat` can be added to automate this like `deploy.bat` does
-for the APK. Not created yet.)
+Pass `--no-pull` to build your current local code instead of syncing first.
 
 ---
 
@@ -79,9 +76,11 @@ for the APK. Not created yet.)
 
 ## Gotchas (read before uploading)
 - **AAB, not APK** — Play rejects APK uploads for new apps.
-- **versionCode must increase on EVERY upload.** Currently `1.0.0+2`. Bump the
-  `version:` line in `app/pubspec.yaml` for each new upload (`1.0.0+3`, `+4`, …),
-  or pass `--build-number=N`. Play rejects a re-used versionCode.
+- **versionCode must increase on EVERY upload.** `release.bat` handles this
+  automatically (versionCode = git commit count). The `+N` in
+  `app/pubspec.yaml`'s `version:` line is overridden by the script; only the
+  `1.0.0` versionName part still comes from pubspec — bump that for
+  user-visible releases (1.1.0 etc.). Play rejects a re-used versionCode.
 - **Package name `net.whimsicle.sudoku_app` is permanent** once the Play app exists.
 - **Production gate:** personal Play accounts created after ~Nov 2023 must run a
   **closed test with ≥12 testers for 14 days** before publishing to *Production*.

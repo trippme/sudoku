@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:sudoku_app/games/game_ref.dart';
 import 'package:sudoku_app/services/leaderboard.dart';
 import 'package:sudoku_app/services/storage.dart';
 
@@ -149,8 +150,8 @@ class NotificationService {
         _shareIdBase ^ (g.id & 0xFFFFFF),
         'New challenge from $who',
         g.message.isEmpty
-            ? 'Game #${g.gameId} — tap to play'
-            : '#${g.gameId}: “${g.message}”',
+            ? '${_title(g.gameId, 'Game ')} — tap to play'
+            : '${_title(g.gameId)}: “${g.message}”',
         payloadInbox,
       );
       shown++;
@@ -168,9 +169,11 @@ class NotificationService {
       final who = r.fromName.isEmpty ? r.fromEmail : r.fromName;
       await _show(
         _resultIdBase ^ (r.id & 0xFFFFFF),
-        '$who finished #${r.gameId}',
-        'Their time: ${_fmt(r.seconds)} · '
-            '${r.hints} hint${r.hints == 1 ? '' : 's'}',
+        '$who finished ${_title(r.gameId)}',
+        GameRef.decode(r.gameId).usesHints
+            ? 'Their time: ${_fmt(r.seconds)} · '
+                '${r.hints} hint${r.hints == 1 ? '' : 's'}'
+            : 'Their time: ${_fmt(r.seconds)}',
         payloadInbox,
       );
       shown++;
@@ -178,6 +181,12 @@ class NotificationService {
     await Storage.setString(_resultHwmKey, resultHwm);
 
     return shown;
+  }
+
+  /// "#1234" for Sudoku (unchanged wording), "FreeCell #617" etc. otherwise.
+  static String _title(int gameId, [String sudokuPrefix = '']) {
+    final r = GameRef.decode(gameId);
+    return r.kind == GameKind.sudoku ? '$sudokuPrefix#$gameId' : r.label;
   }
 
   /// Show a notification with the given text — used to surface an FCM push that

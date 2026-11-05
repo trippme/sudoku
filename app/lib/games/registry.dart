@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sudoku_app/games/freecell/freecell_screen.dart';
 import 'package:sudoku_app/games/game_definition.dart';
+import 'package:sudoku_app/games/solitaire/solitaire_screen.dart';
 import 'package:sudoku_app/games/sudoku/ui/home_menu.dart';
 
 /// Every game in the app, in picker order. Adding a game = add an entry here.
@@ -20,5 +21,13 @@ final List<GameDefinition> kGames = [
     icon: Icons.style,
     color: Colors.green,
     buildHome: (_) => const FreeCellScreen(),
+  ),
+  GameDefinition(
+    id: 'solitaire',
+    name: 'Solitaire',
+    tagline: 'Klondike, draw 1 or 3',
+    icon: Icons.filter_none,
+    color: Colors.deepOrange,
+    buildHome: (_) => const SolitaireScreen(),
   ),
 ];

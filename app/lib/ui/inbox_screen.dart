@@ -88,7 +88,8 @@ class _InboxScreenState extends State<InboxScreen> {
       if (!g.seen) svc.markSeen(g.id, profile.email);
       final Widget screen = switch (ref.kind) {
         GameKind.freecell => FreeCellScreen(initialDeal: ref.deal),
-        GameKind.bubble => BubbleScreen(initialDeal: ref.deal),
+        GameKind.bubble =>
+          BubbleScreen(initialDeal: ref.deal, initialVariant: ref.variant),
         _ => SolitaireScreen(initialDeal: ref.deal, initialDraw: ref.draw),
       };
       await Navigator.of(context)

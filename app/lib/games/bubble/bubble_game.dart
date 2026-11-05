@@ -1,3 +1,16 @@
+/// Board sizes. The enum ORDER is part of the leaderboard id scheme (see
+/// `GameRef`), so only ever append.
+enum BubbleSize {
+  medium(10, 12, 'Medium'),
+  small(8, 10, 'Small'),
+  large(12, 14, 'Large');
+
+  final int width;
+  final int height;
+  final String label;
+  const BubbleSize(this.width, this.height, this.label);
+}
+
 /// One bubble. [id] is stable for its whole life so the UI can animate it
 /// falling; [color] is 0..[BubbleGame.numColors]-1.
 class Bubble {
@@ -13,15 +26,20 @@ class Bubble {
 /// Clearing the whole board is worth a bonus. The game ends when no group of
 /// two remains.
 class BubbleGame {
-  static const int numColumns = 10;
-  static const int numRows = 12;
   static const int numColors = 5;
   static const int clearBonus = 1000;
 
   final int deal;
+  final BubbleSize size;
+
+  /// When true (the classic rule) empty columns slide away so the remaining
+  /// ones close ranks to the left; when false the board stays fixed and an
+  /// emptied column leaves a permanent gap.
+  final bool collapse;
 
   /// Columns left→right; each is bottom→top, so `columns[c][0]` is the bubble
-  /// resting on the floor. Empty columns are always at the right-hand end.
+  /// resting on the floor. With [collapse], empty columns are always at the
+  /// right-hand end.
   final List<List<Bubble>> columns;
   int score;
   int moves;
@@ -29,24 +47,40 @@ class BubbleGame {
   BubbleGame({
     required this.deal,
     required this.columns,
+    this.size = BubbleSize.medium,
+    this.collapse = true,
     this.score = 0,
     this.moves = 0,
   });
 
-  /// Deterministic board: same [number] → same board on every device.
-  factory BubbleGame.deal(int number) {
+  /// Size/mode variant 0..5 used for leaderboard ids (see `GameRef`).
+  int get variant => size.index * 2 + (collapse ? 0 : 1);
+
+  static BubbleSize sizeOfVariant(int v) => BubbleSize.values[v ~/ 2];
+  static bool collapseOfVariant(int v) => v.isEven;
+
+  int get width => size.width;
+  int get height => size.height;
+
+  /// Deterministic board: same [number] + options → same board everywhere.
+  factory BubbleGame.deal(
+    int number, {
+    BubbleSize size = BubbleSize.medium,
+    bool collapse = true,
+  }) {
     var seed = number;
     var id = 0;
     final cols = <List<Bubble>>[];
-    for (var c = 0; c < numColumns; c++) {
+    for (var c = 0; c < size.width; c++) {
       final col = <Bubble>[];
-      for (var r = 0; r < numRows; r++) {
+      for (var r = 0; r < size.height; r++) {
         seed = (seed * 214013 + 2531011) & 0xFFFFFFFF;
         col.add(Bubble(id++, ((seed >> 16) & 0x7FFF) % numColors));
       }
       cols.add(col);
     }
-    return BubbleGame(deal: number, columns: cols);
+    return BubbleGame(
+        deal: number, columns: cols, size: size, collapse: collapse);
   }
 
   int get remaining => columns.fold(0, (n, c) => n + c.length);
@@ -118,12 +152,14 @@ class BubbleGame {
         columns[e.key].removeAt(rr);
       }
     }
-    // Slide empty columns away to the right.
-    final kept = columns.where((col) => col.isNotEmpty).toList();
-    columns
-      ..clear()
-      ..addAll(kept)
-      ..addAll(List.generate(numColumns - kept.length, (_) => <Bubble>[]));
+    if (collapse) {
+      // Slide empty columns away to the right.
+      final kept = columns.where((col) => col.isNotEmpty).toList();
+      columns
+        ..clear()
+        ..addAll(kept)
+        ..addAll(List.generate(width - kept.length, (_) => <Bubble>[]));
+    }
 
     score += pointsFor(group.length);
     moves++;
@@ -133,6 +169,8 @@ class BubbleGame {
 
   Map<String, dynamic> toJson() => {
         'deal': deal,
+        'size': size.index,
+        'collapse': collapse,
         'score': score,
         'moves': moves,
         // id * 8 + color, bottom→top.
@@ -143,6 +181,8 @@ class BubbleGame {
 
   factory BubbleGame.fromJson(Map<String, dynamic> j) => BubbleGame(
         deal: j['deal'] as int,
+        size: BubbleSize.values[(j['size'] ?? 0) as int],
+        collapse: (j['collapse'] ?? true) as bool,
         score: j['score'] as int,
         moves: j['moves'] as int,
         columns: [

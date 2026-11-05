@@ -14,6 +14,8 @@ import 'package:sudoku_app/ui/send_to_friends.dart';
 
 const String kBubbleSaveKey = 'bubble.save';
 const String kBubbleBestKey = 'bubble.best';
+const String kBubbleSizeKey = 'bubble.size';
+const String kBubbleCollapseKey = 'bubble.collapse';
 
 /// How long a bubble takes to drop into its new spot.
 const Duration kBubbleFallDuration = Duration(milliseconds: 280);
@@ -35,12 +37,17 @@ class BubbleScreen extends StatefulWidget {
   /// Start a specific board (e.g. a friend's challenge). Replaces any save.
   final int? initialDeal;
 
+  /// Size/mode variant for [initialDeal] (see `GameRef`); defaults to the
+  /// player's chosen options.
+  final int? initialVariant;
+
   /// Test hook: start from an arbitrary position.
   final BubbleGame? initialGame;
   const BubbleScreen({
     super.key,
     this.persist = true,
     this.initialDeal,
+    this.initialVariant,
     this.initialGame,
   });
 
@@ -55,12 +62,24 @@ class _BubbleScreenState extends State<BubbleScreen> {
   int _best = 0;
   bool _finishing = false;
 
-  GameRef get _ref => GameRef.bubble(_game.deal);
+  /// The player's options for NEW boards (the current board keeps its own).
+  BubbleSize _prefSize = BubbleSize.medium;
+  bool _prefCollapse = true;
+
+  GameRef get _ref => GameRef.bubble(_game.deal, variant: _game.variant);
 
   @override
   void initState() {
     super.initState();
     var secs = 0;
+    if (widget.persist) {
+      _best = int.tryParse(Storage.getString(kBubbleBestKey) ?? '') ?? 0;
+      final si = int.tryParse(Storage.getString(kBubbleSizeKey) ?? '');
+      if (si != null && si >= 0 && si < BubbleSize.values.length) {
+        _prefSize = BubbleSize.values[si];
+      }
+      _prefCollapse = Storage.getString(kBubbleCollapseKey) != 'false';
+    }
     final saved = _loadSaved();
     if (widget.initialGame != null) {
       _game = widget.initialGame!;
@@ -68,10 +87,12 @@ class _BubbleScreenState extends State<BubbleScreen> {
       _game = saved.$1;
       secs = saved.$2;
     } else {
-      _game = BubbleGame.deal(widget.initialDeal ?? _randomDeal());
-    }
-    if (widget.persist) {
-      _best = int.tryParse(Storage.getString(kBubbleBestKey) ?? '') ?? 0;
+      final v = widget.initialVariant;
+      _game = BubbleGame.deal(
+        widget.initialDeal ?? _randomDeal(),
+        size: v != null ? BubbleGame.sizeOfVariant(v) : _prefSize,
+        collapse: v != null ? BubbleGame.collapseOfVariant(v) : _prefCollapse,
+      );
     }
     _clock = GameClock(seconds: secs, onTick: () {
       if (mounted) setState(() {});
@@ -110,9 +131,11 @@ class _BubbleScreenState extends State<BubbleScreen> {
     }
   }
 
-  void _newBoard(int deal) {
+  /// Deals [deal] with the given options, or the player's chosen ones.
+  void _newBoard(int deal, {BubbleSize? size, bool? collapse}) {
     setState(() {
-      _game = BubbleGame.deal(deal);
+      _game = BubbleGame.deal(deal,
+          size: size ?? _prefSize, collapse: collapse ?? _prefCollapse);
       _selIds = {};
       _finishing = false;
       _clock
@@ -270,6 +293,79 @@ class _BubbleScreenState extends State<BubbleScreen> {
     if (n != null && n >= 1 && n <= GameRef.maxDeal) _newBoard(n);
   }
 
+  /// Board size and the collapse rule. These apply to NEW boards, so saving
+  /// them starts one (each size/mode has its own leaderboard).
+  Future<void> _showOptions() async {
+    var size = _prefSize;
+    var collapse = _prefCollapse;
+    final apply = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setInner) => AlertDialog(
+          title: const Text('Bubble Breaker options'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Board size'),
+                const SizedBox(height: 8),
+                Wrap(
+                  key: const Key('bb-size'),
+                  spacing: 8,
+                  children: [
+                    for (final s in BubbleSize.values)
+                      ChoiceChip(
+                        label: Text(s.label),
+                        selected: size == s,
+                        onSelected: (_) => setInner(() => size = s),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text('${size.width} × ${size.height} bubbles',
+                    style: Theme.of(ctx).textTheme.bodySmall),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  key: const Key('bb-collapse'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Columns close together'),
+                  subtitle: Text(collapse
+                      ? 'When a column empties, the others slide over.'
+                      : 'The board stays fixed — emptied columns leave a gap.'),
+                  value: collapse,
+                  onChanged: (v) => setInner(() => collapse = v),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Applying starts a new board. Each size and mode has its '
+                  'own leaderboard.',
+                  style: Theme.of(ctx).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Apply & new board')),
+          ],
+        ),
+      ),
+    );
+    if (apply != true || !mounted) return;
+    _prefSize = size;
+    _prefCollapse = collapse;
+    if (widget.persist) {
+      Storage.setString(kBubbleSizeKey, '${size.index}');
+      Storage.setString(kBubbleCollapseKey, collapse ? 'true' : 'false');
+    }
+    _newBoard(_randomDeal());
+  }
+
   // ---- build --------------------------------------------------------------
 
   @override
@@ -288,7 +384,10 @@ class _BubbleScreenState extends State<BubbleScreen> {
                 case 'choose':
                   _chooseBoard();
                 case 'restart':
-                  _newBoard(_game.deal);
+                  _newBoard(_game.deal,
+                      size: _game.size, collapse: _game.collapse);
+                case 'options':
+                  _showOptions();
                 case 'board':
                   Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) => LeaderboardScreen(gameId: _ref.id)));
@@ -301,6 +400,8 @@ class _BubbleScreenState extends State<BubbleScreen> {
               PopupMenuItem(value: 'new', child: Text('New random board')),
               PopupMenuItem(value: 'choose', child: Text('Play board number…')),
               PopupMenuItem(value: 'restart', child: Text('Restart this board')),
+              PopupMenuItem(
+                  value: 'options', child: Text('Board size & options…')),
               PopupMenuItem(value: 'board', child: Text('Leaderboard')),
               PopupMenuItem(value: 'send', child: Text('Challenge a friend')),
             ],
@@ -310,9 +411,9 @@ class _BubbleScreenState extends State<BubbleScreen> {
       body: SafeArea(
         child: LayoutBuilder(builder: (context, box) {
           const pad = 8.0;
-          final cell = min(52.0, (box.maxWidth - 2 * pad) / BubbleGame.numColumns);
-          final boardW = cell * BubbleGame.numColumns;
-          final boardH = cell * BubbleGame.numRows;
+          final cell = min(52.0, (box.maxWidth - 2 * pad) / _game.width);
+          final boardW = cell * _game.width;
+          final boardH = cell * _game.height;
           return SingleChildScrollView(
             padding: const EdgeInsets.all(pad),
             child: Center(
@@ -321,17 +422,29 @@ class _BubbleScreenState extends State<BubbleScreen> {
                 child: Column(
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Score: ${_game.score}',
-                            style: const TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.bold)),
+                        Expanded(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text('Score: ${_game.score}',
+                                style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                        ),
                         Text(GameClock.format(_clock.seconds),
                             style: const TextStyle(fontSize: 16)),
-                        Text('Best: $_best',
-                            style: TextStyle(
-                                fontSize: 14,
-                                color: theme.colorScheme.onSurfaceVariant)),
+                        Expanded(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text('Best: $_best',
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    color: theme.colorScheme.onSurfaceVariant)),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -387,7 +500,7 @@ class _BubbleScreenState extends State<BubbleScreen> {
       duration: kBubbleFallDuration,
       curve: Curves.easeIn,
       left: c * cell,
-      top: (BubbleGame.numRows - 1 - r) * cell,
+      top: (_game.height - 1 - r) * cell,
       width: cell,
       height: cell,
       child: GestureDetector(

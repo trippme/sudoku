@@ -119,4 +119,79 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('the options dialog changes the board size and fixed mode',
+      (tester) async {
+    _bigScreen(tester);
+    await tester.pumpWidget(withProviders(
+      const BubbleScreen(persist: false, initialDeal: 12),
+    ));
+    // Medium: 10 columns.
+    expect(find.byKey(const Key('bb-9-0')), findsOneWidget);
+    expect(find.byKey(const Key('bb-10-0')), findsNothing);
+
+    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Board size & options…'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Small'));
+    await tester.pumpAndSettle();
+    expect(find.text('8 × 10 bubbles'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('bb-collapse')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('The board stays fixed'), findsOneWidget);
+    await tester.tap(find.text('Apply & new board'));
+    await tester.pumpAndSettle();
+
+    // Small: 8 columns, 10 rows.
+    expect(find.byKey(const Key('bb-7-9')), findsOneWidget);
+    expect(find.byKey(const Key('bb-8-0')), findsNothing);
+    expect(find.byKey(const Key('bb-0-10')), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('a challenge opens with its own size and mode', (tester) async {
+    _bigScreen(tester);
+    await tester.pumpWidget(withProviders(
+      const BubbleScreen(persist: false, initialDeal: 5, initialVariant: 4),
+    ));
+    // Variant 4 = large (12 x 14), collapsing.
+    expect(find.byKey(const Key('bb-11-13')), findsOneWidget);
+    expect(find.byKey(const Key('bb-12-0')), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('the score is submitted under the variant\u2019s leaderboard id',
+      (tester) async {
+    _bigScreen(tester);
+    final board = _RecordingBoard();
+    final profile = Profile(name: 'Tripp', email: 'tripp@example.com');
+    final game = BubbleGame(
+      deal: 55,
+      size: BubbleSize.small,
+      collapse: false,
+      columns: [
+        [const Bubble(0, 1), const Bubble(1, 1)],
+        ...List.generate(7, (_) => <Bubble>[]),
+      ],
+    );
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<Profile>.value(value: profile),
+        Provider<LeaderboardService>.value(value: board),
+      ],
+      child: MaterialApp(home: BubbleScreen(persist: false, initialGame: game)),
+    ));
+    await tester.tap(find.byKey(const Key('bb-0-0')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('bb-0-0')));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+    expect(board.submitted.single.gameId, GameRef.bubble(55, variant: 3).id);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox());
+  });
 }

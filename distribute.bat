@@ -60,7 +60,14 @@ set "NOTES=%GIT_SHA%"
 for /f "delims=" %%s in ('git -C "%ROOT%." log -1 "--pretty=%%s" 2^>nul') do set "NOTES=%%s (%GIT_SHA%)"
 set "BUILD_TIME=unknown"
 for /f "delims=" %%t in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd_HH:mm" 2^>nul') do set "BUILD_TIME=%%t"
-echo Building %GIT_SHA% at %BUILD_TIME%
+REM versionCode / build number = git commit count: it grows with every merge,
+REM so the in-app "build" number actually changes build to build (without
+REM --build-number Flutter would keep reusing the "+N" in pubspec.yaml).
+set "BUILD_NUMBER="
+for /f "delims=" %%n in ('git -C "%ROOT%." rev-list --count HEAD 2^>nul') do set "BUILD_NUMBER=%%n"
+set "BN_ARG="
+if defined BUILD_NUMBER set "BN_ARG=--build-number=%BUILD_NUMBER%"
+echo Building %GIT_SHA% at %BUILD_TIME% ^(build %BUILD_NUMBER%^)
 
 REM Backend API key (git-ignored), injected so testers' builds reach the server.
 set "BACKEND_API_KEY="
@@ -69,7 +76,7 @@ if exist "%ROOT%server\data\api-key.txt" set /p BACKEND_API_KEY=<"%ROOT%server\d
 REM ---- 3. build release APK ----------------------------------------------
 pushd "%APP_DIR%" || (echo [ERROR] Cannot find app folder: %APP_DIR% & goto :fail)
 echo Building release APK ^(first build can take a few minutes^)...
-call flutter build apk --release --dart-define=GIT_SHA=%GIT_SHA% --dart-define=BUILD_TIME=%BUILD_TIME% --dart-define=BACKEND_API_KEY=%BACKEND_API_KEY%
+call flutter build apk --release %BN_ARG% --dart-define=GIT_SHA=%GIT_SHA% --dart-define=BUILD_TIME=%BUILD_TIME% --dart-define=BACKEND_API_KEY=%BACKEND_API_KEY%
 if errorlevel 1 (popd & echo [ERROR] Flutter build failed. & goto :fail)
 popd
 if not exist "%APK%" (echo [ERROR] APK not found at: %APK% & goto :fail)

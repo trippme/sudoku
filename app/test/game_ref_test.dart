@@ -60,4 +60,35 @@ void main() {
     final s = GameRef.sudoku(7).describeResult(seconds: 61, hints: 1, mistakes: 2);
     expect((s.headline, s.detail), ('1:01', '1 hint · 2 mistakes'));
   });
+
+  test('bubble variants: own ids, original game keeps its ids', () {
+    // Medium + collapsing is the original game: ids must not move.
+    expect(GameRef.bubble(5).id, 1300000005);
+    final ids = <int>{};
+    for (var v = 0; v < GameRef.bubbleVariants; v++) {
+      for (final deal in [1, 1000000]) {
+        final ref = GameRef.bubble(deal, variant: v);
+        ids.add(ref.id);
+        final back = GameRef.decode(ref.id);
+        expect((back.kind, back.deal, back.variant), (GameKind.bubble, deal, v));
+        expect(ref.id, lessThan(2147483647));
+      }
+    }
+    expect(ids.length, GameRef.bubbleVariants * 2); // no collisions
+    // No bubble id decodes as another game, and vice versa.
+    expect(GameRef.decode(GameRef.freecell(1000000).id).kind, GameKind.freecell);
+    expect(GameRef.decode(GameRef.solitaire(1000000, draw: 3).id).kind,
+        GameKind.solitaire);
+  });
+
+  test('bubble variant labels', () {
+    expect(GameRef.bubble(5).label, 'Bubble Breaker #5');
+    expect(GameRef.bubble(5, variant: 1).label, 'Bubble Breaker #5 (fixed)');
+    expect(GameRef.bubble(5, variant: 2).label, 'Bubble Breaker #5 (small)');
+    expect(GameRef.bubble(5, variant: 3).label,
+        'Bubble Breaker #5 (small, fixed)');
+    expect(GameRef.bubble(5, variant: 4).label, 'Bubble Breaker #5 (large)');
+    expect(GameRef.bubble(5, variant: 5).label,
+        'Bubble Breaker #5 (large, fixed)');
+  });
 }

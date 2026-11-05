@@ -70,7 +70,7 @@ void main() {
       g.pop(0, 0);
       expect(g.columns[0].map((b) => b.color), [1, 1]); // old col2 moved over
       expect(g.columns[1], isEmpty);
-      expect(g.columns.length, BubbleGame.numColumns); // padded with empties
+      expect(g.columns.length, g.width); // padded with empties
     });
 
     test('bigger groups score more and the order of popping is by id', () {
@@ -96,6 +96,105 @@ void main() {
       g.pop(0, 0);
       final r = BubbleGame.fromJson(g.toJson());
       expect(r.toJson().toString(), g.toJson().toString());
+    });
+  });
+
+  group('sizes and fixed mode', () {
+    test('each size deals the right dimensions', () {
+      for (final size in BubbleSize.values) {
+        final g = BubbleGame.deal(7, size: size);
+        expect(g.columns.length, size.width);
+        expect(g.columns.every((c) => c.length == size.height), isTrue);
+        expect(g.remaining, size.width * size.height);
+      }
+      expect(BubbleSize.small.width * BubbleSize.small.height,
+          lessThan(BubbleSize.medium.width * BubbleSize.medium.height));
+      expect(BubbleSize.large.width * BubbleSize.large.height,
+          greaterThan(BubbleSize.medium.width * BubbleSize.medium.height));
+    });
+
+    test('the same number gives different boards at different sizes', () {
+      expect(BubbleGame.deal(7, size: BubbleSize.small).toJson().toString(),
+          isNot(BubbleGame.deal(7).toJson().toString()));
+    });
+
+    test('collapse mode closes the gap; fixed mode leaves it', () {
+      BubbleGame make(bool collapse) {
+        final g = BubbleGame(
+          deal: 1,
+          collapse: collapse,
+          columns: [
+            [const Bubble(0, 1), const Bubble(1, 1)], // col 0: a pair
+            [const Bubble(2, 2)], // col 1 (will be left of the gap)
+            [const Bubble(3, 3), const Bubble(4, 3)], // col 2: a pair
+            ...List.generate(7, (_) => <Bubble>[]),
+          ],
+        );
+        return g;
+      }
+
+      final c = make(true)..pop(2, 0);
+      expect(c.columns[0].length, 2);
+      expect(c.columns[1].length, 1);
+      expect(c.columns[2], isEmpty); // closed up: nothing in the middle
+
+      final f = make(false)..pop(0, 0); // empty the FIRST column
+      expect(f.columns[0], isEmpty);
+      expect(f.columns[1].length, 1); // column 1 did NOT slide into slot 0
+      expect(f.columns[2].length, 2);
+      expect(f.columns.length, 10);
+    });
+
+    test('in fixed mode bubbles still fall within their column', () {
+      final g = BubbleGame(
+        deal: 1,
+        collapse: false,
+        columns: [
+          [const Bubble(0, 0), const Bubble(1, 1), const Bubble(2, 1),
+           const Bubble(3, 2)],
+          ...List.generate(9, (_) => <Bubble>[]),
+        ],
+      );
+      g.pop(0, 1); // the two 1s
+      expect(g.columns[0].map((b) => b.color), [0, 2]);
+    });
+
+    test('empty columns do not join groups across the gap (fixed)', () {
+      final g = BubbleGame(
+        deal: 1,
+        collapse: false,
+        columns: [
+          [const Bubble(0, 4)],
+          <Bubble>[],
+          [const Bubble(1, 4)],
+          ...List.generate(7, (_) => <Bubble>[]),
+        ],
+      );
+      expect(g.groupAt(0, 0), isEmpty);
+      expect(g.hasMoves, isFalse);
+    });
+
+    test('options survive a save, and old saves default to medium/collapse', () {
+      final g = BubbleGame.deal(3, size: BubbleSize.large, collapse: false);
+      final r = BubbleGame.fromJson(g.toJson());
+      expect((r.size, r.collapse, r.variant), (BubbleSize.large, false, 5));
+
+      final old = g.toJson()
+        ..remove('size')
+        ..remove('collapse');
+      final d = BubbleGame.fromJson(
+          BubbleGame.deal(3).toJson()..remove('size')..remove('collapse'));
+      expect((d.size, d.collapse, d.variant), (BubbleSize.medium, true, 0));
+      expect(old.containsKey('size'), isFalse);
+    });
+
+    test('variant mapping round trips', () {
+      for (var v = 0; v < 6; v++) {
+        final g = BubbleGame.deal(1,
+            size: BubbleGame.sizeOfVariant(v),
+            collapse: BubbleGame.collapseOfVariant(v));
+        expect(g.variant, v);
+      }
     });
   });
 }

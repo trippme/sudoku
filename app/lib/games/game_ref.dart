@@ -11,7 +11,12 @@
 /// | FreeCell         | 1,000,000,000 + deal       |
 /// | Solitaire draw-1 | 1,100,000,000 + deal       |
 /// | Solitaire draw-3 | 1,200,000,000 + deal       |
-/// | Bubble Breaker   | 1,300,000,000 + deal       |
+/// | Bubble Breaker   | 1,300,000,000 + variant × 10,000,000 + deal |
+///
+/// A Bubble Breaker *variant* (0..5) is `sizeIndex × 2 + (fixed ? 1 : 0)` with
+/// sizes medium=0, small=1, large=2, so variant 0 (medium, collapsing — the
+/// original game) keeps its original ids and every size/mode has its own
+/// leaderboard.
 ///
 /// Deals are 1..[maxDeal], so every id fits a signed 32-bit INT.
 enum GameKind { sudoku, freecell, solitaire, bubble }
@@ -22,6 +27,9 @@ class GameRef {
   static const int _solitaire1Base = 1100000000;
   static const int _solitaire3Base = 1200000000;
   static const int _bubbleBase = 1300000000;
+  static const int _bubbleStride = 10000000;
+  static const int bubbleVariants = 6;
+  static const _bubbleSizeNames = ['Medium', 'Small', 'Large'];
 
   /// Bubble Breaker ranks by HIGH score, but the backend ranks by fewest
   /// "hints" then fastest time. So a score is stored as `hints = _scoreCeiling
@@ -41,11 +49,15 @@ class GameRef {
   /// Solitaire only: cards turned per draw (1 or 3). 0 for other games.
   final int draw;
 
-  const GameRef._(this.kind, this.deal, this.draw);
+  /// Bubble Breaker only: size/mode variant, 0..[bubbleVariants]-1.
+  final int variant;
+
+  const GameRef._(this.kind, this.deal, this.draw, [this.variant = 0]);
 
   static GameRef sudoku(int gameId) => GameRef._(GameKind.sudoku, gameId, 0);
   static GameRef freecell(int deal) => GameRef._(GameKind.freecell, deal, 0);
-  static GameRef bubble(int deal) => GameRef._(GameKind.bubble, deal, 0);
+  static GameRef bubble(int deal, {int variant = 0}) =>
+      GameRef._(GameKind.bubble, deal, 0, variant.clamp(0, bubbleVariants - 1));
   static GameRef solitaire(int deal, {int draw = 1}) =>
       GameRef._(GameKind.solitaire, deal, draw == 3 ? 3 : 1);
 
@@ -59,7 +71,10 @@ class GameRef {
     }
 
     if (fits(_freecellBase)) return GameRef.freecell(inRange(_freecellBase));
-    if (fits(_bubbleBase)) return GameRef.bubble(inRange(_bubbleBase));
+    for (var v = 0; v < bubbleVariants; v++) {
+      final base = _bubbleBase + v * _bubbleStride;
+      if (fits(base)) return GameRef.bubble(inRange(base), variant: v);
+    }
     if (fits(_solitaire1Base)) {
       return GameRef.solitaire(inRange(_solitaire1Base), draw: 1);
     }
@@ -78,7 +93,7 @@ class GameRef {
       case GameKind.solitaire:
         return (draw == 3 ? _solitaire3Base : _solitaire1Base) + deal;
       case GameKind.bubble:
-        return _bubbleBase + deal;
+        return _bubbleBase + variant * _bubbleStride + deal;
     }
   }
 
@@ -126,7 +141,15 @@ class GameRef {
 
   /// e.g. "FreeCell #617", "Solitaire #42 (draw 3)", "Sudoku #8123".
   String get label {
-    final extra = kind == GameKind.solitaire && draw == 3 ? ' (draw 3)' : '';
+    var extra = kind == GameKind.solitaire && draw == 3 ? ' (draw 3)' : '';
+    if (kind == GameKind.bubble && variant != 0) {
+      final size = _bubbleSizeNames[variant ~/ 2];
+      final parts = [
+        if (variant ~/ 2 != 0) size.toLowerCase(),
+        if (variant.isOdd) 'fixed',
+      ];
+      extra = ' (${parts.join(', ')})';
+    }
     return '$gameName #$deal$extra';
   }
 }

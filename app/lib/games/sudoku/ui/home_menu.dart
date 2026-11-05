@@ -2,21 +2,21 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
-import '../build_info.dart';
-import '../engine/sudoku_engine.dart';
-import '../models/game_state.dart';
-import '../models/settings.dart';
-import '../models/stats.dart';
-import '../models/profile.dart';
-import '../services/game_catalog.dart';
-import '../services/leaderboard.dart';
-import '../services/notifications.dart';
-import 'game_screen.dart';
-import 'stats_screen.dart';
-import 'settings_screen.dart';
-import 'inbox_screen.dart';
-import 'tutorial_screen.dart';
-import 'theme.dart';
+import 'package:sudoku_app/build_info.dart';
+import 'package:sudoku_app/games/sudoku/engine/sudoku_engine.dart';
+import 'package:sudoku_app/games/sudoku/models/game_state.dart';
+import 'package:sudoku_app/models/settings.dart';
+import 'package:sudoku_app/games/sudoku/models/stats.dart';
+import 'package:sudoku_app/models/profile.dart';
+import 'package:sudoku_app/games/sudoku/services/game_catalog.dart';
+import 'package:sudoku_app/services/leaderboard.dart';
+import 'package:sudoku_app/services/notifications.dart';
+import 'package:sudoku_app/games/sudoku/ui/game_screen.dart';
+import 'package:sudoku_app/games/sudoku/ui/stats_screen.dart';
+import 'package:sudoku_app/ui/settings_screen.dart';
+import 'package:sudoku_app/ui/inbox_screen.dart';
+import 'package:sudoku_app/games/sudoku/ui/tutorial_screen.dart';
+import 'package:sudoku_app/ui/theme.dart';
 
 /// The main menu: resume any in-progress game, start a new one, daily, stats,
 /// settings. Multiple games can be in progress at once (issue #1, "ideal").
@@ -207,6 +207,11 @@ class _HomeMenuState extends State<HomeMenu> with WidgetsBindingObserver {
     final saved = GameState.listSavedGames();
 
     return Scaffold(
+      // Back arrow to the game picker.
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+      ),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(

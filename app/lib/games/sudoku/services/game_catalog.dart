@@ -1,5 +1,5 @@
 import 'dart:math';
-import '../engine/sudoku_engine.dart';
+import 'package:sudoku_app/games/sudoku/engine/sudoku_engine.dart';
 
 /// Maps a **game number** to a puzzle, deterministically. Because the puzzle is
 /// a pure function of its number, "game #1234" is the same for everyone with no

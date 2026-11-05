@@ -1,14 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import '../engine/sudoku_engine.dart';
-import '../engine/hint_engine.dart';
-import '../services/storage.dart';
-import '../services/game_catalog.dart';
-import '../services/leaderboard.dart';
-import 'settings.dart';
-import 'stats.dart';
-import 'profile.dart';
+import 'package:sudoku_app/games/sudoku/engine/sudoku_engine.dart';
+import 'package:sudoku_app/games/sudoku/engine/hint_engine.dart';
+import 'package:sudoku_app/services/storage.dart';
+import 'package:sudoku_app/games/sudoku/services/game_catalog.dart';
+import 'package:sudoku_app/services/leaderboard.dart';
+import 'package:sudoku_app/models/settings.dart';
+import 'package:sudoku_app/games/sudoku/models/stats.dart';
+import 'package:sudoku_app/models/profile.dart';
 
 /// What triggered a flash, so the UI can colour it (house = amber, an entire
 /// digit completed = green), echoing the original "Blink Completed".

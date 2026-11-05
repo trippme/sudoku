@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import '../services/storage.dart';
+import 'package:sudoku_app/services/storage.dart';
 
 /// The player's identity for online features. No password — the email is just
 /// how your results are keyed and how friends find you. Persisted locally.

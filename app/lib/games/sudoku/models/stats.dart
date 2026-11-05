@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import '../engine/sudoku_engine.dart';
-import '../services/storage.dart';
+import 'package:sudoku_app/games/sudoku/engine/sudoku_engine.dart';
+import 'package:sudoku_app/services/storage.dart';
 
 /// One finished game.
 class CompletionRecord {

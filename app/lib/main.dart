@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'config.dart';
-import 'models/game_state.dart';
-import 'models/settings.dart';
-import 'models/stats.dart';
-import 'models/profile.dart';
-import 'services/storage.dart';
-import 'services/leaderboard.dart';
-import 'services/notifications.dart';
-import 'services/background.dart';
-import 'services/push.dart';
-import 'ui/home_menu.dart';
-import 'ui/inbox_screen.dart';
-import 'ui/theme.dart';
+import 'package:sudoku_app/config.dart';
+import 'package:sudoku_app/games/sudoku/models/game_state.dart';
+import 'package:sudoku_app/models/settings.dart';
+import 'package:sudoku_app/games/sudoku/models/stats.dart';
+import 'package:sudoku_app/models/profile.dart';
+import 'package:sudoku_app/services/storage.dart';
+import 'package:sudoku_app/services/leaderboard.dart';
+import 'package:sudoku_app/services/notifications.dart';
+import 'package:sudoku_app/services/background.dart';
+import 'package:sudoku_app/services/push.dart';
+import 'package:sudoku_app/ui/game_picker.dart';
+import 'package:sudoku_app/ui/inbox_screen.dart';
+import 'package:sudoku_app/ui/theme.dart';
 
 /// Lets notification taps (which happen outside any widget's context) push a
 /// route onto the app's navigator.
@@ -101,13 +101,13 @@ class SudokuApp extends StatelessWidget {
       // Rebuild the app when the theme preference changes (issue #40).
       child: Consumer<Settings>(
         builder: (context, s, _) => MaterialApp(
-          title: 'Sudoku',
+          title: "Tripp's Games",
           navigatorKey: navigatorKey,
           debugShowCheckedModeBanner: false,
           theme: buildAppTheme(Brightness.light),
           darkTheme: buildAppTheme(Brightness.dark),
           themeMode: s.themeMode,
-          home: const HomeMenu(),
+          home: const GamePicker(),
         ),
       ),
     );

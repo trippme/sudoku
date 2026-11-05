@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../engine/sudoku_engine.dart';
-import '../engine/hint_engine.dart';
-import '../models/game_state.dart';
-import '../models/profile.dart';
-import '../services/leaderboard.dart';
-import 'sudoku_grid.dart';
-import 'control_pad.dart';
-import 'leaderboard_screen.dart';
-import 'settings_screen.dart';
+import 'package:sudoku_app/games/sudoku/engine/sudoku_engine.dart';
+import 'package:sudoku_app/games/sudoku/engine/hint_engine.dart';
+import 'package:sudoku_app/games/sudoku/models/game_state.dart';
+import 'package:sudoku_app/models/profile.dart';
+import 'package:sudoku_app/services/leaderboard.dart';
+import 'package:sudoku_app/games/sudoku/ui/sudoku_grid.dart';
+import 'package:sudoku_app/games/sudoku/ui/control_pad.dart';
+import 'package:sudoku_app/ui/leaderboard_screen.dart';
+import 'package:sudoku_app/ui/settings_screen.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});

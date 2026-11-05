@@ -3,10 +3,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sudoku_app/services/storage.dart';
 import 'package:sudoku_app/services/leaderboard.dart';
 import 'package:sudoku_app/models/settings.dart';
-import 'package:sudoku_app/models/stats.dart';
+import 'package:sudoku_app/games/sudoku/models/stats.dart';
 import 'package:sudoku_app/models/profile.dart';
-import 'package:sudoku_app/models/game_state.dart';
-import 'package:sudoku_app/engine/sudoku_engine.dart';
+import 'package:sudoku_app/games/sudoku/models/game_state.dart';
+import 'package:sudoku_app/games/sudoku/engine/sudoku_engine.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

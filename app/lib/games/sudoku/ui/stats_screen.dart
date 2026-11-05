@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../engine/sudoku_engine.dart';
-import '../models/stats.dart';
+import 'package:sudoku_app/games/sudoku/engine/sudoku_engine.dart';
+import 'package:sudoku_app/games/sudoku/models/stats.dart';
 
 class StatsScreen extends StatelessWidget {
   const StatsScreen({super.key});

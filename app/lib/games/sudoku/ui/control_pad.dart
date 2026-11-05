@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/game_state.dart';
-import 'theme.dart';
+import 'package:sudoku_app/games/sudoku/models/game_state.dart';
+import 'package:sudoku_app/ui/theme.dart';
 
 /// Digit keypad plus tool buttons. The keypad mirrors the original
 /// "Enjoy Sudoku": a selected digit (or Erase) stays highlighted green so you

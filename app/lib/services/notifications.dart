@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'leaderboard.dart';
-import 'storage.dart';
+import 'package:sudoku_app/services/leaderboard.dart';
+import 'package:sudoku_app/services/storage.dart';
 
 /// On-device notifications for incoming challenges and friend results.
 ///

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/profile.dart';
-import '../services/leaderboard.dart';
+import 'package:sudoku_app/models/profile.dart';
+import 'package:sudoku_app/services/leaderboard.dart';
 
 /// Shows the global leaderboard and your friends' results for one game number.
 class LeaderboardScreen extends StatefulWidget {

@@ -1,4 +1,4 @@
-import 'sudoku_engine.dart';
+import 'package:sudoku_app/games/sudoku/engine/sudoku_engine.dart';
 
 /// One step of a progressively-revealed hint (issue #42), mirroring the old
 /// app: first nudge ("examine the digit"), then the region, then the exact cell.

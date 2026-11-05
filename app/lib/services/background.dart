@@ -1,11 +1,11 @@
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:workmanager/workmanager.dart';
-import '../config.dart';
-import '../models/profile.dart';
-import 'leaderboard.dart';
-import 'notifications.dart';
-import 'storage.dart';
+import 'package:sudoku_app/config.dart';
+import 'package:sudoku_app/models/profile.dart';
+import 'package:sudoku_app/services/leaderboard.dart';
+import 'package:sudoku_app/services/notifications.dart';
+import 'package:sudoku_app/services/storage.dart';
 
 const _uniqueName = 'sudoku-inbox-poll';
 const _taskName = 'pollInbox';

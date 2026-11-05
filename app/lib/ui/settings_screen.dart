@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../engine/sudoku_engine.dart';
-import '../models/settings.dart';
-import '../models/profile.dart';
-import '../services/background.dart';
-import '../services/notifications.dart';
-import '../services/push.dart';
+import 'package:sudoku_app/games/sudoku/engine/sudoku_engine.dart';
+import 'package:sudoku_app/models/settings.dart';
+import 'package:sudoku_app/models/profile.dart';
+import 'package:sudoku_app/services/background.dart';
+import 'package:sudoku_app/services/notifications.dart';
+import 'package:sudoku_app/services/push.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});

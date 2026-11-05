@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sudoku_app/engine/sudoku_engine.dart';
-import 'package:sudoku_app/engine/hint_engine.dart';
-import 'package:sudoku_app/services/game_catalog.dart';
+import 'package:sudoku_app/games/sudoku/engine/sudoku_engine.dart';
+import 'package:sudoku_app/games/sudoku/engine/hint_engine.dart';
+import 'package:sudoku_app/games/sudoku/services/game_catalog.dart';
 
 void main() {
   group('generator', () {

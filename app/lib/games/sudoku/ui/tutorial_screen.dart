@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../tutorial/tutorial_content.dart';
-import 'theme.dart';
+import 'package:sudoku_app/games/sudoku/tutorial/tutorial_content.dart';
+import 'package:sudoku_app/ui/theme.dart';
 
 /// The offline "Learn" section (issue #49): an index of guides written for this
 /// app and structured after Sudopedia, with links back to Sudopedia as the

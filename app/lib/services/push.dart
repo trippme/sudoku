@@ -3,8 +3,8 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatf
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
-import '../config.dart';
-import 'notifications.dart';
+import 'package:sudoku_app/config.dart';
+import 'package:sudoku_app/services/notifications.dart';
 
 /// Background/terminated message handler. Runs in its own isolate. We send
 /// "notification" messages, which the OS displays automatically while the app

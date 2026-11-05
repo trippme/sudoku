@@ -1,9 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../engine/sudoku_engine.dart';
-import '../models/game_state.dart';
-import 'theme.dart';
+import 'package:sudoku_app/games/sudoku/engine/sudoku_engine.dart';
+import 'package:sudoku_app/games/sudoku/models/game_state.dart';
+import 'package:sudoku_app/ui/theme.dart';
 
 /// The 9×9 playing field. Tapping a cell selects it. When a row, column, or
 /// box is completed, its cells flash twice (like the original "Blink

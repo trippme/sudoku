@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sudoku_app/tutorial/tutorial_content.dart';
+import 'package:sudoku_app/games/sudoku/tutorial/tutorial_content.dart';
 
 void main() {
   test('the Learn index covers the expected sections (issue #49)', () {

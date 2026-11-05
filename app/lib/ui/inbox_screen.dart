@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/game_state.dart';
-import '../models/profile.dart';
-import '../services/leaderboard.dart';
-import 'game_screen.dart';
-import 'leaderboard_screen.dart';
+import 'package:sudoku_app/games/sudoku/models/game_state.dart';
+import 'package:sudoku_app/models/profile.dart';
+import 'package:sudoku_app/services/leaderboard.dart';
+import 'package:sudoku_app/games/sudoku/ui/game_screen.dart';
+import 'package:sudoku_app/ui/leaderboard_screen.dart';
 
 /// Your inbox: competitor results friends pushed to you, and games they sent
 /// you to play.

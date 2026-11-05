@@ -41,4 +41,23 @@ void main() {
     expect(GameRef.sudoku(8123).label, 'Sudoku #8123');
     expect(GameRef.freecell(617).usesHints, isFalse);
   });
+
+  test('bubble breaker ids, labels and score encoding', () {
+    for (final deal in [1, 99, 1000000]) {
+      final b = GameRef.decode(GameRef.bubble(deal).id);
+      expect((b.kind, b.deal), (GameKind.bubble, deal));
+    }
+    expect(GameRef.bubble(5).label, 'Bubble Breaker #5');
+    expect(GameRef.bubble(1000000).id, lessThan(2147483647));
+    expect(GameRef.bubble(5).usesScore, isTrue);
+    // A higher score must become a LOWER hints number (backend sorts hints asc).
+    expect(GameRef.hintsForScore(900), lessThan(GameRef.hintsForScore(500)));
+    expect(GameRef.scoreFromHints(GameRef.hintsForScore(1234)), 1234);
+    expect(GameRef.hintsForScore(-5), GameRef.hintsForScore(0));
+    final r = GameRef.bubble(5)
+        .describeResult(seconds: 75, hints: GameRef.hintsForScore(640));
+    expect((r.headline, r.detail), ('640 pts', '1:15'));
+    final s = GameRef.sudoku(7).describeResult(seconds: 61, hints: 1, mistakes: 2);
+    expect((s.headline, s.detail), ('1:01', '1 hint · 2 mistakes'));
+  });
 }

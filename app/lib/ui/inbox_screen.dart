@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sudoku_app/games/bubble/bubble_screen.dart';
 import 'package:sudoku_app/games/freecell/freecell_screen.dart';
 import 'package:sudoku_app/games/game_ref.dart';
 import 'package:sudoku_app/games/solitaire/solitaire_screen.dart';
@@ -41,10 +42,11 @@ class _InboxScreenState extends State<InboxScreen> {
     }
   }
 
-  static String _fmt(int seconds) {
-    final m = seconds ~/ 60;
-    final s = (seconds % 60).toString().padLeft(2, '0');
-    return '$m:$s';
+  /// "3:21 · 1 hint" (Sudoku), "4:02" (cards), "640 pts · 1:15" (Bubble).
+  static String _resultText(CompetitorResult r) {
+    final d = GameRef.decode(r.gameId)
+        .describeResult(seconds: r.seconds, hints: r.hints);
+    return d.detail == null ? d.headline : '${d.headline} · ${d.detail}';
   }
 
   Future<void> _play(ReceivedGame g) async {
@@ -58,9 +60,11 @@ class _InboxScreenState extends State<InboxScreen> {
           .push(MaterialPageRoute(builder: (_) => const GameScreen()));
     } else {
       // Card games keep a single saved game; a challenge replaces it.
-      final saveKey = ref.kind == GameKind.freecell
-          ? kFreeCellSaveKey
-          : kSolitaireSaveKey;
+      final saveKey = switch (ref.kind) {
+        GameKind.freecell => kFreeCellSaveKey,
+        GameKind.bubble => kBubbleSaveKey,
+        _ => kSolitaireSaveKey,
+      };
       if (Storage.getString(saveKey) != null) {
         final ok = await showDialog<bool>(
           context: context,
@@ -82,9 +86,11 @@ class _InboxScreenState extends State<InboxScreen> {
         if (ok != true || !mounted) return;
       }
       if (!g.seen) svc.markSeen(g.id, profile.email);
-      final screen = ref.kind == GameKind.freecell
-          ? FreeCellScreen(initialDeal: ref.deal)
-          : SolitaireScreen(initialDeal: ref.deal, initialDraw: ref.draw);
+      final Widget screen = switch (ref.kind) {
+        GameKind.freecell => FreeCellScreen(initialDeal: ref.deal),
+        GameKind.bubble => BubbleScreen(initialDeal: ref.deal),
+        _ => SolitaireScreen(initialDeal: ref.deal, initialDraw: ref.draw),
+      };
       await Navigator.of(context)
           .push(MaterialPageRoute(builder: (_) => screen));
     }
@@ -148,11 +154,7 @@ class _InboxScreenState extends State<InboxScreen> {
                             r.seen ? FontWeight.normal : FontWeight.bold,
                       ),
                     ),
-                    subtitle: Text(
-                      GameRef.decode(r.gameId).usesHints
-                          ? '${_fmt(r.seconds)} · ${r.hints} hint${r.hints == 1 ? '' : 's'}'
-                          : _fmt(r.seconds),
-                    ),
+                    subtitle: Text(_resultText(r)),
                     trailing: const Icon(Icons.leaderboard),
                     onTap: () => _openResult(r),
                   ),

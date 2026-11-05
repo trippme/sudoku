@@ -11,15 +11,27 @@
 /// | FreeCell         | 1,000,000,000 + deal       |
 /// | Solitaire draw-1 | 1,100,000,000 + deal       |
 /// | Solitaire draw-3 | 1,200,000,000 + deal       |
+/// | Bubble Breaker   | 1,300,000,000 + deal       |
 ///
 /// Deals are 1..[maxDeal], so every id fits a signed 32-bit INT.
-enum GameKind { sudoku, freecell, solitaire }
+enum GameKind { sudoku, freecell, solitaire, bubble }
 
 class GameRef {
   static const int maxDeal = 1000000;
   static const int _freecellBase = 1000000000;
   static const int _solitaire1Base = 1100000000;
   static const int _solitaire3Base = 1200000000;
+  static const int _bubbleBase = 1300000000;
+
+  /// Bubble Breaker ranks by HIGH score, but the backend ranks by fewest
+  /// "hints" then fastest time. So a score is stored as `hints = _scoreCeiling
+  /// - score` (a higher score is a lower number) with the play time as the
+  /// tie-break.
+  static const int _scoreCeiling = 100000;
+  static int hintsForScore(int score) =>
+      _scoreCeiling - score.clamp(0, _scoreCeiling - 1);
+  static int scoreFromHints(int hints) =>
+      (_scoreCeiling - hints).clamp(0, _scoreCeiling - 1);
 
   final GameKind kind;
 
@@ -33,6 +45,7 @@ class GameRef {
 
   static GameRef sudoku(int gameId) => GameRef._(GameKind.sudoku, gameId, 0);
   static GameRef freecell(int deal) => GameRef._(GameKind.freecell, deal, 0);
+  static GameRef bubble(int deal) => GameRef._(GameKind.bubble, deal, 0);
   static GameRef solitaire(int deal, {int draw = 1}) =>
       GameRef._(GameKind.solitaire, deal, draw == 3 ? 3 : 1);
 
@@ -46,6 +59,7 @@ class GameRef {
     }
 
     if (fits(_freecellBase)) return GameRef.freecell(inRange(_freecellBase));
+    if (fits(_bubbleBase)) return GameRef.bubble(inRange(_bubbleBase));
     if (fits(_solitaire1Base)) {
       return GameRef.solitaire(inRange(_solitaire1Base), draw: 1);
     }
@@ -63,11 +77,39 @@ class GameRef {
         return _freecellBase + deal;
       case GameKind.solitaire:
         return (draw == 3 ? _solitaire3Base : _solitaire1Base) + deal;
+      case GameKind.bubble:
+        return _bubbleBase + deal;
     }
   }
 
   /// Sudoku results carry hints/mistakes; the card games are ranked on time.
   bool get usesHints => kind == GameKind.sudoku;
+
+  /// Bubble Breaker results are scores (see [hintsForScore]).
+  bool get usesScore => kind == GameKind.bubble;
+
+  /// How to show a stored result: a headline plus an optional detail line.
+  /// Sudoku: time / hints & mistakes. Card games: time. Bubble: score / time.
+  ({String headline, String? detail}) describeResult({
+    required int seconds,
+    required int hints,
+    int? mistakes,
+  }) {
+    final t = '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+    switch (kind) {
+      case GameKind.sudoku:
+        return (
+          headline: t,
+          detail: '$hints hint${hints == 1 ? '' : 's'}'
+              '${mistakes == null ? '' : ' · $mistakes mistake${mistakes == 1 ? '' : 's'}'}',
+        );
+      case GameKind.bubble:
+        return (headline: '${scoreFromHints(hints)} pts', detail: t);
+      case GameKind.freecell:
+      case GameKind.solitaire:
+        return (headline: t, detail: null);
+    }
+  }
 
   String get gameName {
     switch (kind) {
@@ -77,6 +119,8 @@ class GameRef {
         return 'FreeCell';
       case GameKind.solitaire:
         return 'Solitaire';
+      case GameKind.bubble:
+        return 'Bubble Breaker';
     }
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sudoku_app/games/bubble/bubble_screen.dart';
 import 'package:sudoku_app/games/freecell/freecell_screen.dart';
 import 'package:sudoku_app/games/game_definition.dart';
 import 'package:sudoku_app/games/solitaire/solitaire_screen.dart';
@@ -29,5 +30,13 @@ final List<GameDefinition> kGames = [
     icon: Icons.filter_none,
     color: Colors.deepOrange,
     buildHome: (_) => const SolitaireScreen(),
+  ),
+  GameDefinition(
+    id: 'bubble',
+    name: 'Bubble Breaker',
+    tagline: 'Pop matching bubbles for a high score',
+    icon: Icons.bubble_chart,
+    color: Colors.teal,
+    buildHome: (_) => const BubbleScreen(),
   ),
 ];

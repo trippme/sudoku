@@ -74,6 +74,7 @@ void main() {
         expect(ref.id, lessThan(2147483647));
       }
     }
+    expect(GameRef.bubbleVariants, 24);
     expect(ids.length, GameRef.bubbleVariants * 2); // no collisions
     // No bubble id decodes as another game, and vice versa.
     expect(GameRef.decode(GameRef.freecell(1000000).id).kind, GameKind.freecell);
@@ -93,5 +94,14 @@ void main() {
     expect(GameRef.bubble(5, variant: 6).label, 'Bubble Breaker #5 (x-large)');
     expect(GameRef.bubble(5, variant: 7).label,
         'Bubble Breaker #5 (x-large, fixed)');
+    // Levels come first in the label.
+    expect(GameRef.bubble(5, variant: 8).label, 'Bubble Breaker #5 (easy)');
+    expect(GameRef.bubble(5, variant: 9).label,
+        'Bubble Breaker #5 (easy, fixed)');
+    expect(GameRef.bubble(5, variant: 16).label, 'Bubble Breaker #5 (hard)');
+    expect(GameRef.bubble(5, variant: 19).label,
+        'Bubble Breaker #5 (hard, small, fixed)');
+    expect(GameRef.bubble(5, variant: 23).label,
+        'Bubble Breaker #5 (hard, x-large, fixed)');
   });
 }

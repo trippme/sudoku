@@ -112,4 +112,78 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pumpWidget(const SizedBox());
   });
+
+  SolitaireGame nearlyDone() => SolitaireGame(
+        deal: 7,
+        drawCount: 1,
+        columns: [
+          [const PlayingCard(1, Suit.hearts)], // 2♥, A♥ is already up
+          [const PlayingCard(2, Suit.spades)], // 3♠, nothing under it yet
+          ...List.generate(5, (_) => <PlayingCard>[]),
+        ],
+        faceUp: [1, 1, 0, 0, 0, 0, 0],
+        stock: [],
+        waste: [const PlayingCard(1, Suit.clubs)], // 2♣ (A♣ not up)
+        foundations: [0, 0, 1, 0],
+      );
+
+  testWidgets('double-tapping a playable card jumps it to its foundation',
+      (tester) async {
+    _bigScreen(tester);
+    await tester.pumpWidget(MaterialApp(
+      home: SolitaireScreen(persist: false, initialGame: nearlyDone()),
+    ));
+    expect(find.textContaining('Moves: 0'), findsOneWidget);
+
+    final card = find.byKey(const Key('sol-card-0-0'));
+    await tester.tap(card);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(card);
+    await tester.pump();
+
+    expect(find.textContaining('Moves: 1'), findsOneWidget);
+    expect(find.byKey(const Key('sol-card-0-0')), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('double-tapping a card that does not fit leaves it alone',
+      (tester) async {
+    _bigScreen(tester);
+    await tester.pumpWidget(MaterialApp(
+      home: SolitaireScreen(persist: false, initialGame: nearlyDone()),
+    ));
+    final card = find.byKey(const Key('sol-card-1-0')); // 3♠: needs A♠, 2♠ first
+    await tester.tap(card);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(card);
+    await tester.pump();
+    expect(find.textContaining('Moves: 0'), findsOneWidget);
+    expect(find.byKey(const Key('sol-card-1-0')), findsOneWidget);
+
+    // Waste 2♣ also can't go up (A♣ missing).
+    final waste = find.byKey(const Key('sol-waste'));
+    await tester.tap(waste);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(waste);
+    await tester.pump();
+    expect(find.textContaining('Moves: 0'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('a slow second tap is two single taps, not a double-tap',
+      (tester) async {
+    _bigScreen(tester);
+    await tester.pumpWidget(MaterialApp(
+      home: SolitaireScreen(persist: false, initialGame: nearlyDone()),
+    ));
+    final card = find.byKey(const Key('sol-card-0-0'));
+    await tester.tap(card);
+    await tester.pump();
+    await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 450)));
+    await tester.tap(card); // deselects instead of jumping
+    await tester.pump();
+    expect(find.textContaining('Moves: 0'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
 }

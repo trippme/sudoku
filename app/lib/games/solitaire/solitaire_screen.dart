@@ -172,8 +172,33 @@ class _SolitaireScreenState extends State<SolitaireScreen> {
     if (_game.draw()) _afterMove();
   }
 
+  // Double-tap detection is done by hand (rather than GestureDetector's
+  // onDoubleTap) so a single tap still reacts instantly instead of waiting to
+  // see whether a second one follows.
+  static const _doubleTapWindow = Duration(milliseconds: 350);
+  String? _lastTapKey;
+  DateTime _lastTapAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  bool _isDoubleTap(String key) {
+    final now = DateTime.now();
+    final dbl = _lastTapKey == key && now.difference(_lastTapAt) < _doubleTapWindow;
+    _lastTapKey = dbl ? null : key;
+    _lastTapAt = now;
+    return dbl;
+  }
+
+  /// Double-tap: jump the card straight up to its foundation if it fits. If it
+  /// doesn't, nothing happens (the first tap's selection stays).
+  void _sendToFoundation(SolPile pile, int index) {
+    if (_game.move(pile, index, 1, SolPile.foundation)) _afterMove();
+  }
+
   void _tapWaste() {
     if (_game.waste.isEmpty) return;
+    if (_isDoubleTap('waste')) {
+      _sendToFoundation(SolPile.waste, 0);
+      return;
+    }
     final s = _sel;
     setState(() => _sel =
         (s != null && s.pile == SolPile.waste) ? null : const _Sel(SolPile.waste, 0, 1));
@@ -189,6 +214,13 @@ class _SolitaireScreenState extends State<SolitaireScreen> {
   void _tapColumnCard(int c, int i) {
     final col = _game.columns[c];
     final faceUpStart = col.length - _game.faceUp[c];
+    if (_isDoubleTap('col-$c-$i')) {
+      // Only the bottom card of a column can go up to a foundation.
+      if (i == col.length - 1 && i >= faceUpStart) {
+        _sendToFoundation(SolPile.column, c);
+      }
+      return;
+    }
     final s = _sel;
     if (s != null) {
       if (s.pile == SolPile.column &&
@@ -312,6 +344,16 @@ class _SolitaireScreenState extends State<SolitaireScreen> {
                       child: Text(
                         'Moves: ${_game.moves}  ·  ${GameClock.format(_clock.seconds)}'
                         '  ·  Draw ${_game.drawCount}',
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Center(
+                      child: Text(
+                        'Double-tap a card to send it to its foundation',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
                       ),
                     ),
                   ],

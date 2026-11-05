@@ -90,5 +90,8 @@ void main() {
     expect(GameRef.bubble(5, variant: 4).label, 'Bubble Breaker #5 (large)');
     expect(GameRef.bubble(5, variant: 5).label,
         'Bubble Breaker #5 (large, fixed)');
+    expect(GameRef.bubble(5, variant: 6).label, 'Bubble Breaker #5 (x-large)');
+    expect(GameRef.bubble(5, variant: 7).label,
+        'Bubble Breaker #5 (x-large, fixed)');
   });
 }

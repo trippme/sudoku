@@ -13,8 +13,8 @@
 /// | Solitaire draw-3 | 1,200,000,000 + deal       |
 /// | Bubble Breaker   | 1,300,000,000 + variant × 10,000,000 + deal |
 ///
-/// A Bubble Breaker *variant* (0..5) is `sizeIndex × 2 + (fixed ? 1 : 0)` with
-/// sizes medium=0, small=1, large=2, so variant 0 (medium, collapsing — the
+/// A Bubble Breaker *variant* (0..7) is `sizeIndex × 2 + (fixed ? 1 : 0)` with
+/// sizes medium=0, small=1, large=2, x-large=3, so variant 0 (medium, collapsing — the
 /// original game) keeps its original ids and every size/mode has its own
 /// leaderboard.
 ///
@@ -28,8 +28,8 @@ class GameRef {
   static const int _solitaire3Base = 1200000000;
   static const int _bubbleBase = 1300000000;
   static const int _bubbleStride = 10000000;
-  static const int bubbleVariants = 6;
-  static const _bubbleSizeNames = ['Medium', 'Small', 'Large'];
+  static const int bubbleVariants = 8;
+  static const _bubbleSizeNames = ['Medium', 'Small', 'Large', 'X-Large'];
 
   /// Bubble Breaker ranks by HIGH score, but the backend ranks by fewest
   /// "hints" then fastest time. So a score is stored as `hints = _scoreCeiling

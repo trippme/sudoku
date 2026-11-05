@@ -111,6 +111,11 @@ void main() {
           lessThan(BubbleSize.medium.width * BubbleSize.medium.height));
       expect(BubbleSize.large.width * BubbleSize.large.height,
           greaterThan(BubbleSize.medium.width * BubbleSize.medium.height));
+      expect(BubbleSize.xlarge.width * BubbleSize.xlarge.height,
+          greaterThan(BubbleSize.large.width * BubbleSize.large.height));
+      // The enum order is baked into leaderboard ids: never reorder it.
+      expect(BubbleSize.values.map((s) => s.name),
+          ['medium', 'small', 'large', 'xlarge']);
     });
 
     test('the same number gives different boards at different sizes', () {
@@ -189,7 +194,7 @@ void main() {
     });
 
     test('variant mapping round trips', () {
-      for (var v = 0; v < 6; v++) {
+      for (var v = 0; v < BubbleSize.values.length * 2; v++) {
         final g = BubbleGame.deal(1,
             size: BubbleGame.sizeOfVariant(v),
             collapse: BubbleGame.collapseOfVariant(v));

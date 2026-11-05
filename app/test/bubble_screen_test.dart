@@ -194,4 +194,25 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('X-Large is offered and deals a 14 x 16 board', (tester) async {
+    _bigScreen(tester);
+    await tester.pumpWidget(withProviders(
+      const BubbleScreen(persist: false, initialDeal: 12),
+    ));
+    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Board size & options…'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('X-Large'));
+    await tester.pumpAndSettle();
+    expect(find.text('14 × 16 bubbles'), findsOneWidget);
+    await tester.tap(find.text('Apply & new board'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('bb-13-15')), findsOneWidget);
+    expect(find.byKey(const Key('bb-14-0')), findsNothing);
+    expect(find.byKey(const Key('bb-0-16')), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
 }

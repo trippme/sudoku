@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sudoku_app/games/game_ref.dart';
 import 'package:sudoku_app/models/profile.dart';
 import 'package:sudoku_app/services/leaderboard.dart';
 
@@ -42,7 +43,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     final profile = context.watch<Profile>();
     return Scaffold(
       appBar: AppBar(
-        title: Text('Game #${widget.gameId}'),
+        title: Text(GameRef.decode(widget.gameId).label),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -73,6 +74,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 : 'No friends have finished this game yet.',
             showEmail: true,
             highlightEmail: profile.email,
+            usesHints: GameRef.decode(widget.gameId).usesHints,
           ),
           const SizedBox(height: 16),
           const _SectionTitle('Global'),
@@ -81,6 +83,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             emptyText: 'No results yet — be the first to finish this game!',
             showEmail: false,
             highlightEmail: profile.email,
+            usesHints: GameRef.decode(widget.gameId).usesHints,
           ),
         ],
       ),
@@ -107,11 +110,15 @@ class _Results extends StatelessWidget {
   final bool showEmail;
   final String highlightEmail;
 
+  /// Sudoku rows show hints/mistakes; card games are ranked on time alone.
+  final bool usesHints;
+
   const _Results({
     required this.future,
     required this.emptyText,
     required this.showEmail,
     required this.highlightEmail,
+    required this.usesHints,
   });
 
   @override
@@ -146,6 +153,16 @@ class _Results extends StatelessWidget {
     );
   }
 
+  Widget? _subtitle(ResultEntry e) {
+    final email = showEmail && e.email != null ? e.email! : '';
+    if (!usesHints) return email.isEmpty ? null : Text(email);
+    return Text(
+      '${e.hints} hint${e.hints == 1 ? '' : 's'} · '
+      '${e.mistakes} mistake${e.mistakes == 1 ? '' : 's'}'
+      '${email.isEmpty ? '' : '\n$email'}',
+    );
+  }
+
   Widget _row(BuildContext context, int rank, ResultEntry e) {
     final isMe = showEmail && e.email != null && e.email == highlightEmail;
     return Container(
@@ -157,12 +174,8 @@ class _Results extends StatelessWidget {
           child: Text('$rank', style: const TextStyle(fontSize: 12)),
         ),
         title: Text(e.name.isEmpty ? '(anonymous)' : e.name),
-        subtitle: Text(
-          '${e.hints} hint${e.hints == 1 ? '' : 's'} · '
-          '${e.mistakes} mistake${e.mistakes == 1 ? '' : 's'}'
-          '${showEmail && e.email != null ? '\n${e.email}' : ''}',
-        ),
-        isThreeLine: showEmail,
+        subtitle: _subtitle(e),
+        isThreeLine: showEmail && usesHints,
         trailing: Text(
           _LeaderboardScreenState._fmt(e.seconds),
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),

@@ -4,12 +4,10 @@ import 'package:provider/provider.dart';
 import 'package:sudoku_app/games/sudoku/engine/sudoku_engine.dart';
 import 'package:sudoku_app/games/sudoku/engine/hint_engine.dart';
 import 'package:sudoku_app/games/sudoku/models/game_state.dart';
-import 'package:sudoku_app/models/profile.dart';
-import 'package:sudoku_app/services/leaderboard.dart';
 import 'package:sudoku_app/games/sudoku/ui/sudoku_grid.dart';
 import 'package:sudoku_app/games/sudoku/ui/control_pad.dart';
 import 'package:sudoku_app/ui/leaderboard_screen.dart';
-import 'package:sudoku_app/ui/settings_screen.dart';
+import 'package:sudoku_app/ui/send_to_friends.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -149,94 +147,10 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Future<void> _sendToFriends(BuildContext context) async {
-    final profile = context.read<Profile>();
+  Future<void> _sendToFriends(BuildContext context) {
     final game = context.read<GameState>();
-    final svc = context.read<LeaderboardService>();
-    final messenger = ScaffoldMessenger.of(context);
-
-    if (!profile.hasIdentity || profile.friends.isEmpty) {
-      final goSettings = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Set up friends first'),
-          content: Text(profile.hasIdentity
-              ? 'Add a friend by email in Settings to send them games.'
-              : 'Set your name and email, then add friends, in Settings.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Not now'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Open Settings'),
-            ),
-          ],
-        ),
-      );
-      if (goSettings == true && context.mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const SettingsScreen()),
-        );
-      }
-      return;
-    }
-
-    final selected = <String>{};
-    final send = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setInner) => AlertDialog(
-          title: Text('Send game #${game.gameId} to…'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                for (final f in profile.friends)
-                  CheckboxListTile(
-                    dense: true,
-                    value: selected.contains(f),
-                    title: Text(f),
-                    onChanged: (v) => setInner(() =>
-                        v == true ? selected.add(f) : selected.remove(f)),
-                  ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed:
-                  selected.isEmpty ? null : () => Navigator.pop(ctx, true),
-              child: const Text('Send'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (send != true || selected.isEmpty) return;
-
-    var ok = 0;
-    for (final f in selected) {
-      if (await svc.sendGame(
-        fromEmail: profile.email,
-        fromName: profile.name,
-        toEmail: f,
-        gameId: game.gameId,
-      )) {
-        ok++;
-      }
-    }
-    messenger.showSnackBar(SnackBar(
-      content: Text(ok > 0
-          ? 'Sent game #${game.gameId} to $ok friend${ok == 1 ? '' : 's'}'
-          : 'Could not send — check your connection'),
-    ));
+    return sendGameToFriends(context,
+        gameId: game.gameId, label: 'game #${game.gameId}');
   }
 
   Future<void> _showHint(BuildContext context) async {

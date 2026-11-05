@@ -2,6 +2,11 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:sudoku_app/games/cards/card_widgets.dart';
+import 'package:sudoku_app/games/cards/game_clock.dart';
+import 'package:sudoku_app/games/cards/win_flow.dart';
+import 'package:sudoku_app/games/game_ref.dart';
+import 'package:sudoku_app/ui/leaderboard_screen.dart';
+import 'package:sudoku_app/ui/send_to_friends.dart';
 import 'package:sudoku_app/games/cards/playing_card.dart';
 import 'package:sudoku_app/games/freecell/freecell_game.dart';
 import 'package:sudoku_app/services/storage.dart';
@@ -12,8 +17,18 @@ const String kFreeCellSaveKey = 'freecell.save';
 class FreeCellScreen extends StatefulWidget {
   /// Skips persistence (used by widget tests).
   final bool persist;
+
+  /// Start a specific deal (e.g. a friend's challenge). Replaces any saved game.
   final int? initialDeal;
-  const FreeCellScreen({super.key, this.persist = true, this.initialDeal});
+
+  /// Test hook: start from an arbitrary position.
+  final FreeCellGame? initialGame;
+  const FreeCellScreen({
+    super.key,
+    this.persist = true,
+    this.initialDeal,
+    this.initialGame,
+  });
 
   @override
   State<FreeCellScreen> createState() => _FreeCellScreenState();
@@ -28,22 +43,46 @@ class _Sel {
 
 class _FreeCellScreenState extends State<FreeCellScreen> {
   late FreeCellGame _game;
+  late final GameClock _clock;
   _Sel? _sel;
+
+  GameRef get _ref => GameRef.freecell(_game.deal);
 
   @override
   void initState() {
     super.initState();
-    _game = _loadSaved() ?? FreeCellGame.deal(widget.initialDeal ?? _randomDeal());
+    var secs = 0;
+    final saved = _loadSaved();
+    if (widget.initialGame != null) {
+      _game = widget.initialGame!;
+    } else if (saved != null) {
+      _game = saved.$1;
+      secs = saved.$2;
+    } else {
+      _game = FreeCellGame.deal(widget.initialDeal ?? _randomDeal());
+    }
+    _clock = GameClock(seconds: secs, onTick: () {
+      if (mounted) setState(() {});
+    });
+    if (!_game.won) _clock.start();
+  }
+
+  @override
+  void dispose() {
+    _save();
+    _clock.dispose();
+    super.dispose();
   }
 
   static int _randomDeal() => Random().nextInt(1000000) + 1;
 
-  FreeCellGame? _loadSaved() {
+  (FreeCellGame, int)? _loadSaved() {
     if (!widget.persist || widget.initialDeal != null) return null;
     try {
       final raw = Storage.getString(kFreeCellSaveKey);
       if (raw == null) return null;
-      return FreeCellGame.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      final m = jsonDecode(raw) as Map<String, dynamic>;
+      return (FreeCellGame.fromJson(m), (m['secs'] ?? 0) as int);
     } catch (_) {
       return null;
     }
@@ -54,7 +93,8 @@ class _FreeCellScreenState extends State<FreeCellScreen> {
     if (_game.won) {
       Storage.remove(kFreeCellSaveKey);
     } else {
-      Storage.setString(kFreeCellSaveKey, jsonEncode(_game.toJson()));
+      Storage.setString(kFreeCellSaveKey,
+          jsonEncode({..._game.toJson(), 'secs': _clock.seconds}));
     }
   }
 
@@ -63,6 +103,7 @@ class _FreeCellScreenState extends State<FreeCellScreen> {
     _save();
     setState(() {});
     if (_game.won) {
+      _clock.stop();
       WidgetsBinding.instance.addPostFrameCallback((_) => _showWin());
     }
   }
@@ -71,28 +112,18 @@ class _FreeCellScreenState extends State<FreeCellScreen> {
     setState(() {
       _game = FreeCellGame.deal(deal);
       _sel = null;
+      _clock
+        ..reset()
+        ..start();
     });
     _save();
   }
 
   Future<void> _showWin() async {
     if (!mounted) return;
-    final again = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('You won! 🎉'),
-        content: Text('Deal #${_game.deal} solved in ${_game.moves} moves.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Close')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('New deal')),
-        ],
-      ),
-    );
-    if (again == true) _newDeal(_randomDeal());
+    final again = await showCardWinDialog(context,
+        ref: _ref, seconds: _clock.seconds, moves: _game.moves);
+    if (again && mounted) _newDeal(_randomDeal());
   }
 
   Future<void> _chooseDeal() async {
@@ -206,12 +237,20 @@ class _FreeCellScreenState extends State<FreeCellScreen> {
                   _chooseDeal();
                 case 'restart':
                   _newDeal(_game.deal);
+                case 'board':
+                  Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => LeaderboardScreen(gameId: _ref.id)));
+                case 'send':
+                  sendGameToFriends(context,
+                      gameId: _ref.id, label: _ref.label);
               }
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'new', child: Text('New random deal')),
               PopupMenuItem(value: 'choose', child: Text('Play deal number…')),
               PopupMenuItem(value: 'restart', child: Text('Restart this deal')),
+              PopupMenuItem(value: 'board', child: Text('Leaderboard')),
+              PopupMenuItem(value: 'send', child: Text('Challenge a friend')),
             ],
           ),
         ],
@@ -255,10 +294,12 @@ class _FreeCellScreenState extends State<FreeCellScreen> {
                     Center(
                       child: Text(
                         _game.won
-                            ? 'Solved in ${_game.moves} moves'
+                            ? 'Solved in ${GameClock.format(_clock.seconds)}'
+                                ' · ${_game.moves} moves'
                             : _game.stuck
                                 ? 'No moves left — undo or restart'
-                                : 'Moves: ${_game.moves}',
+                                : 'Moves: ${_game.moves}'
+                                    '  ·  ${GameClock.format(_clock.seconds)}',
                       ),
                     ),
                   ],

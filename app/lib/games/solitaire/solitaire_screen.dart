@@ -2,6 +2,11 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:sudoku_app/games/cards/card_widgets.dart';
+import 'package:sudoku_app/games/cards/game_clock.dart';
+import 'package:sudoku_app/games/cards/win_flow.dart';
+import 'package:sudoku_app/games/game_ref.dart';
+import 'package:sudoku_app/ui/leaderboard_screen.dart';
+import 'package:sudoku_app/ui/send_to_friends.dart';
 import 'package:sudoku_app/games/cards/playing_card.dart';
 import 'package:sudoku_app/games/solitaire/solitaire_game.dart';
 import 'package:sudoku_app/services/storage.dart';
@@ -12,8 +17,22 @@ const String kSolitaireSaveKey = 'solitaire.save';
 class SolitaireScreen extends StatefulWidget {
   /// Skips persistence (used by widget tests).
   final bool persist;
+
+  /// Start a specific deal (e.g. a friend's challenge). Replaces any saved game.
   final int? initialDeal;
-  const SolitaireScreen({super.key, this.persist = true, this.initialDeal});
+
+  /// Draw count for [initialDeal] (1 or 3).
+  final int? initialDraw;
+
+  /// Test hook: start from an arbitrary position.
+  final SolitaireGame? initialGame;
+  const SolitaireScreen({
+    super.key,
+    this.persist = true,
+    this.initialDeal,
+    this.initialDraw,
+    this.initialGame,
+  });
 
   @override
   State<SolitaireScreen> createState() => _SolitaireScreenState();
@@ -28,23 +47,47 @@ class _Sel {
 
 class _SolitaireScreenState extends State<SolitaireScreen> {
   late SolitaireGame _game;
+  late final GameClock _clock;
   _Sel? _sel;
+
+  GameRef get _ref => GameRef.solitaire(_game.deal, draw: _game.drawCount);
 
   @override
   void initState() {
     super.initState();
-    _game = _loadSaved() ??
-        SolitaireGame.deal(widget.initialDeal ?? _randomDeal());
+    var secs = 0;
+    final saved = _loadSaved();
+    if (widget.initialGame != null) {
+      _game = widget.initialGame!;
+    } else if (saved != null) {
+      _game = saved.$1;
+      secs = saved.$2;
+    } else {
+      _game = SolitaireGame.deal(widget.initialDeal ?? _randomDeal(),
+          drawCount: widget.initialDraw ?? 1);
+    }
+    _clock = GameClock(seconds: secs, onTick: () {
+      if (mounted) setState(() {});
+    });
+    if (!_game.won) _clock.start();
+  }
+
+  @override
+  void dispose() {
+    _save();
+    _clock.dispose();
+    super.dispose();
   }
 
   static int _randomDeal() => Random().nextInt(1000000) + 1;
 
-  SolitaireGame? _loadSaved() {
+  (SolitaireGame, int)? _loadSaved() {
     if (!widget.persist || widget.initialDeal != null) return null;
     try {
       final raw = Storage.getString(kSolitaireSaveKey);
       if (raw == null) return null;
-      return SolitaireGame.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      final m = jsonDecode(raw) as Map<String, dynamic>;
+      return (SolitaireGame.fromJson(m), (m['secs'] ?? 0) as int);
     } catch (_) {
       return null;
     }
@@ -55,7 +98,8 @@ class _SolitaireScreenState extends State<SolitaireScreen> {
     if (_game.won) {
       Storage.remove(kSolitaireSaveKey);
     } else {
-      Storage.setString(kSolitaireSaveKey, jsonEncode(_game.toJson()));
+      Storage.setString(kSolitaireSaveKey,
+          jsonEncode({..._game.toJson(), 'secs': _clock.seconds}));
     }
   }
 
@@ -64,6 +108,7 @@ class _SolitaireScreenState extends State<SolitaireScreen> {
     _save();
     setState(() {});
     if (_game.won) {
+      _clock.stop();
       WidgetsBinding.instance.addPostFrameCallback((_) => _showWin());
     }
   }
@@ -72,28 +117,18 @@ class _SolitaireScreenState extends State<SolitaireScreen> {
     setState(() {
       _game = SolitaireGame.deal(deal, drawCount: draw ?? _game.drawCount);
       _sel = null;
+      _clock
+        ..reset()
+        ..start();
     });
     _save();
   }
 
   Future<void> _showWin() async {
     if (!mounted) return;
-    final again = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('You won! 🎉'),
-        content: Text('Deal #${_game.deal} solved in ${_game.moves} moves.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Close')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('New deal')),
-        ],
-      ),
-    );
-    if (again == true) _newDeal(_randomDeal());
+    final again = await showCardWinDialog(context,
+        ref: _ref, seconds: _clock.seconds, moves: _game.moves);
+    if (again && mounted) _newDeal(_randomDeal());
   }
 
   Future<void> _chooseDeal() async {
@@ -211,6 +246,12 @@ class _SolitaireScreenState extends State<SolitaireScreen> {
                   _newDeal(_game.deal);
                 case 'draw':
                   _newDeal(_randomDeal(), draw: _game.drawCount == 1 ? 3 : 1);
+                case 'board':
+                  Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => LeaderboardScreen(gameId: _ref.id)));
+                case 'send':
+                  sendGameToFriends(context,
+                      gameId: _ref.id, label: _ref.label);
               }
             },
             itemBuilder: (_) => [
@@ -225,6 +266,9 @@ class _SolitaireScreenState extends State<SolitaireScreen> {
                     ? 'Switch to draw 3 (new deal)'
                     : 'Switch to draw 1 (new deal)'),
               ),
+              const PopupMenuItem(value: 'board', child: Text('Leaderboard')),
+              const PopupMenuItem(
+                  value: 'send', child: Text('Challenge a friend')),
             ],
           ),
         ],
@@ -266,7 +310,8 @@ class _SolitaireScreenState extends State<SolitaireScreen> {
                     const SizedBox(height: 12),
                     Center(
                       child: Text(
-                        'Moves: ${_game.moves}  ·  Draw ${_game.drawCount}',
+                        'Moves: ${_game.moves}  ·  ${GameClock.format(_clock.seconds)}'
+                        '  ·  Draw ${_game.drawCount}',
                       ),
                     ),
                   ],

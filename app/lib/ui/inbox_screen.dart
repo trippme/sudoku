@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sudoku_app/games/freecell/freecell_screen.dart';
+import 'package:sudoku_app/games/game_ref.dart';
+import 'package:sudoku_app/games/solitaire/solitaire_screen.dart';
 import 'package:sudoku_app/games/sudoku/models/game_state.dart';
+import 'package:sudoku_app/services/storage.dart';
 import 'package:sudoku_app/models/profile.dart';
 import 'package:sudoku_app/services/leaderboard.dart';
 import 'package:sudoku_app/games/sudoku/ui/game_screen.dart';
@@ -46,10 +50,44 @@ class _InboxScreenState extends State<InboxScreen> {
   Future<void> _play(ReceivedGame g) async {
     final svc = context.read<LeaderboardService>();
     final profile = context.read<Profile>();
-    if (!g.seen) svc.markSeen(g.id, profile.email);
-    context.read<GameState>().playGame(g.gameId);
-    await Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => const GameScreen()));
+    final ref = GameRef.decode(g.gameId);
+    if (ref.kind == GameKind.sudoku) {
+      if (!g.seen) svc.markSeen(g.id, profile.email);
+      context.read<GameState>().playGame(g.gameId);
+      await Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => const GameScreen()));
+    } else {
+      // Card games keep a single saved game; a challenge replaces it.
+      final saveKey = ref.kind == GameKind.freecell
+          ? kFreeCellSaveKey
+          : kSolitaireSaveKey;
+      if (Storage.getString(saveKey) != null) {
+        final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text('Replace your ${ref.gameName} game?'),
+            content: Text(
+                'Only one ${ref.gameName} game is kept. Playing ${ref.label} '
+                'will discard the one in progress.'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Keep playing')),
+              FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Discard & play')),
+            ],
+          ),
+        );
+        if (ok != true || !mounted) return;
+      }
+      if (!g.seen) svc.markSeen(g.id, profile.email);
+      final screen = ref.kind == GameKind.freecell
+          ? FreeCellScreen(initialDeal: ref.deal)
+          : SolitaireScreen(initialDeal: ref.deal, initialDraw: ref.draw);
+      await Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => screen));
+    }
     if (mounted) setState(_load);
   }
 
@@ -104,14 +142,16 @@ class _InboxScreenState extends State<InboxScreen> {
                     ),
                     title: Text(
                       '${r.fromName.isEmpty ? r.fromEmail : r.fromName} '
-                      'finished #${r.gameId}',
+                      'finished ${GameRef.decode(r.gameId).label}',
                       style: TextStyle(
                         fontWeight:
                             r.seen ? FontWeight.normal : FontWeight.bold,
                       ),
                     ),
                     subtitle: Text(
-                      '${_fmt(r.seconds)} · ${r.hints} hint${r.hints == 1 ? '' : 's'}',
+                      GameRef.decode(r.gameId).usesHints
+                          ? '${_fmt(r.seconds)} · ${r.hints} hint${r.hints == 1 ? '' : 's'}'
+                          : _fmt(r.seconds),
                     ),
                     trailing: const Icon(Icons.leaderboard),
                     onTap: () => _openResult(r),
@@ -129,7 +169,7 @@ class _InboxScreenState extends State<InboxScreen> {
                           : Theme.of(context).colorScheme.primary,
                     ),
                     title: Text(
-                      'Game #${g.gameId}',
+                      GameRef.decode(g.gameId).label,
                       style: TextStyle(
                         fontWeight:
                             g.seen ? FontWeight.normal : FontWeight.bold,

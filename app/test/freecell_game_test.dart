@@ -130,4 +130,54 @@ void main() {
       expect(r.toJson().toString(), g.toJson().toString());
     });
   });
+
+  group('tap-to-play', () {
+    test('prefers foundation, then a matching column, then a free cell', () {
+      final g = empty();
+      g.columns[0].addAll([c(5, Suit.hearts), c(0, Suit.spades)]); // 6♥, A♠
+      g.columns[1].add(c(6, Suit.clubs)); // 7♣
+      g.columns[2].add(c(9, Suit.clubs));
+      expect(g.bestDestination(Pile.column, 0, 1)!.pile, Pile.foundation);
+      g.toFoundation(Pile.column, 0);
+      final d = g.bestDestination(Pile.column, 0, 1)!; // 6♥ onto 7♣
+      expect((d.pile, d.index), (Pile.column, 1));
+      final cell = g.bestDestination(Pile.column, 2, 1)!; // 10♣ has no home
+      expect((cell.pile, cell.index), (Pile.cell, 0));
+    });
+
+    test('a lone base card does not bounce to an empty column', () {
+      final g = empty();
+      g.columns[0].add(c(9, Suit.clubs));
+      for (var i = 0; i < 4; i++) {
+        g.cells[i] = c(12, Suit.diamonds);
+      }
+      expect(g.bestDestination(Pile.column, 0, 1), isNull);
+      g.columns[1].addAll([c(8, Suit.clubs), c(3, Suit.hearts)]);
+      final d = g.bestDestination(Pile.column, 1, 1)!; // cells full -> empty col
+      expect(d.pile, Pile.column);
+      expect(g.columns[d.index], isEmpty);
+    });
+
+    test('stacks only go onto a matching column', () {
+      final g = empty();
+      g.columns[0].addAll([c(6, Suit.spades), c(5, Suit.hearts)]); // 7♠ 6♥
+      g.columns[1].add(c(7, Suit.hearts)); // 8♥
+      g.columns[2].add(c(0, Suit.clubs));
+      expect(g.bestDestination(Pile.column, 0, 2)!.index, 1);
+      expect(g.bestDestination(Pile.column, 2, 2), isNull);
+    });
+
+    test('play sweeps safe cards and undoes as a single step', () {
+      final g = empty();
+      g.columns[0].addAll([c(0, Suit.hearts), c(5, Suit.clubs)]); // A♥ under 6♣
+      g.columns[1].addAll([c(0, Suit.spades), c(9, Suit.diamonds)]); // A♠ under 10♦
+      final before = g.toJson().toString();
+      expect(g.play(Pile.column, 0, 1, Pile.cell, 0), isTrue); // 6♣ -> cell
+      expect(g.foundations[Suit.hearts.index], 1); // A♥ swept up
+      expect(g.foundations[Suit.spades.index], 0); // A♠ still buried
+      expect(g.moves, 2);
+      g.undo();
+      expect(g.toJson().toString(), before);
+    });
+  });
 }

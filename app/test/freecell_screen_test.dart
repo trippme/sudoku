@@ -45,7 +45,7 @@ void _bigScreen(WidgetTester tester) {
 }
 
 void main() {
-  testWidgets('select a card, move it to a free cell, then undo',
+  testWidgets('tapping a card sends it somewhere; undo brings it back',
       (tester) async {
     _bigScreen(tester);
     await tester.pumpWidget(const MaterialApp(
@@ -54,10 +54,9 @@ void main() {
     expect(find.text('FreeCell #1'), findsOneWidget);
     expect(find.textContaining('Moves: 0'), findsOneWidget);
 
-    // Column 0 of deal #1 has 7 cards; tap the last (index 6), then a cell.
+    // Column 0 of deal #1 has 7 cards; one tap on the bottom card moves it
+    // (to a column it fits on, or a free cell) with no second tap needed.
     await tester.tap(find.byKey(const Key('fc-card-0-6')));
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('fc-cell-0')));
     await tester.pump();
     expect(find.textContaining('Moves: 1'), findsOneWidget);
     expect(find.byKey(const Key('fc-card-0-6')), findsNothing);
@@ -68,6 +67,22 @@ void main() {
     expect(find.byKey(const Key('fc-card-0-6')), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox()); // dispose the clock timer
+  });
+
+  testWidgets('long-press picks a card up, then a free cell takes it',
+      (tester) async {
+    _bigScreen(tester);
+    await tester.pumpWidget(const MaterialApp(
+      home: FreeCellScreen(persist: false, initialDeal: 1),
+    ));
+    await tester.longPress(find.byKey(const Key('fc-card-0-6')));
+    await tester.pump();
+    expect(find.textContaining('Moves: 0'), findsOneWidget); // not auto-sent
+    await tester.tap(find.byKey(const Key('fc-cell-2')));
+    await tester.pump();
+    expect(find.textContaining('Moves: 1'), findsOneWidget);
+    expect(find.byKey(const Key('fc-card-0-6')), findsNothing);
+    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets('winning submits the result under the FreeCell game id',

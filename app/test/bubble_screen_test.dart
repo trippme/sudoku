@@ -78,9 +78,18 @@ Future<void> openOptions(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> tapVisible(WidgetTester tester, Key key) async {
-  await tester.ensureVisible(find.byKey(key));
+/// Scrolls the (lazily built) Options list until [target] exists and is on screen.
+Future<void> scrollTo(WidgetTester tester, Finder target) async {
+  for (var i = 0; i < 15 && target.evaluate().isEmpty; i++) {
+    await tester.drag(find.byType(ListView).first, const Offset(0, -400));
+    await tester.pumpAndSettle();
+  }
+  await tester.ensureVisible(target);
   await tester.pumpAndSettle();
+}
+
+Future<void> tapVisible(WidgetTester tester, Key key) async {
+  await scrollTo(tester, find.byKey(key));
   await tester.tap(find.byKey(key));
   await tester.pumpAndSettle();
 }
@@ -357,11 +366,16 @@ void main() {
       expect(find.byKey(const Key('bb-10-0')), findsNothing);
 
       await openOptions(tester);
-      expect(find.text('Game Sound Settings'), findsOneWidget);
-      expect(find.text('Game UI Effect Settings'), findsOneWidget);
-      expect(find.text('Bubble Appearance'), findsOneWidget);
-      expect(find.text('Bubble Size Setting'), findsOneWidget);
-      expect(find.text('Game Settings'), findsOneWidget);
+      for (final section in [
+        'Game Sound Settings',
+        'Game UI Effect Settings',
+        'Bubble Appearance',
+        'Bubble Size Setting',
+        'Game Settings',
+      ]) {
+        await scrollTo(tester, find.text(section));
+        expect(find.text(section), findsOneWidget);
+      }
 
       await tapVisible(tester, const Key('opt-size-small'));
       await tapVisible(tester, const Key('opt-level'));
@@ -417,9 +431,10 @@ void main() {
       expect(find.byIcon(kBubbleGlyphs[1]), findsWidgets);
 
       await openOptions(tester);
+      // (top to bottom, since the list is lazily built and the helper scrolls down)
+      await tapVisible(tester, const Key('opt-motion'));
       await tapVisible(tester, const Key('opt-theme-round'));
       await tapVisible(tester, const Key('opt-auto'));
-      await tapVisible(tester, const Key('opt-motion'));
       await tester.pageBack();
       await tester.pumpAndSettle();
 
@@ -444,5 +459,105 @@ void main() {
       expect(find.byKey(const Key('bb-12-0')), findsNothing);
       await tester.pumpWidget(const SizedBox());
     });
+  });
+
+  group('refinements', () {
+    testWidgets('the number of selected bubbles shows in their colour',
+        (tester) async {
+      _bigScreen(tester);
+      await tester.pumpWidget(withProviders(
+        BubbleScreen(persist: false, initialGame: twoPairs()),
+      ));
+      expect(find.byKey(const Key('bb-selcount')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('bb-0-0'))); // the two red bubbles
+      await tester.pump();
+      final t = tester.widget<Text>(find.byKey(const Key('bb-selcount')));
+      expect(t.data, '-2');
+      expect(t.style!.color, kBubbleColors[1]);
+
+      await tester.tap(find.byKey(const Key('bb-1-0'))); // other pair: gold
+      await tester.pump();
+      final t2 = tester.widget<Text>(find.byKey(const Key('bb-selcount')));
+      expect(t2.data, '-2');
+      expect(t2.style!.color, kBubbleColors[3]);
+
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('the selected count follows a bigger group', (tester) async {
+      _bigScreen(tester);
+      final g = BubbleGame(deal: 3, columns: [
+        [const Bubble(0, 2), const Bubble(1, 2), const Bubble(2, 2)],
+        [const Bubble(3, 2), const Bubble(4, 0)],
+        ...List.generate(8, (_) => <Bubble>[]),
+      ]);
+      await tester.pumpWidget(
+          withProviders(BubbleScreen(persist: false, initialGame: g)));
+      await tester.tap(find.byKey(const Key('bb-0-1')));
+      await tester.pump();
+      expect(tester.widget<Text>(find.byKey(const Key('bb-selcount'))).data,
+          '-4');
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('all nine board sizes are offered and deal the right board',
+        (tester) async {
+      _bigScreen(tester);
+      await tester.pumpWidget(withProviders(
+        const BubbleScreen(persist: false, initialDeal: 12),
+      ));
+      for (final s in BubbleSize.displayOrder) {
+        await openOptions(tester);
+        await tapVisible(tester, Key('opt-size-${s.name}'));
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        // Each size differs from the previous one, so a new board is offered.
+        await tester.tap(find.text('New board'));
+        await tester.pumpAndSettle();
+        expect(find.byKey(Key('bb-${s.width - 1}-${s.height - 1}')),
+            findsOneWidget,
+            reason: '${s.label} should be ${s.width}x${s.height}');
+        expect(find.byKey(Key('bb-${s.width}-0')), findsNothing);
+        expect(find.byKey(Key('bb-0-${s.height}')), findsNothing);
+      }
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('a classic-size challenge opens at that size', (tester) async {
+      _bigScreen(tester);
+      // variant 28 = normal level, Tiny (20 x 30), collapsing.
+      await tester.pumpWidget(withProviders(
+        const BubbleScreen(persist: false, initialDeal: 5, initialVariant: 28),
+      ));
+      expect(find.byKey(const Key('bb-19-29')), findsOneWidget);
+      expect(find.byKey(const Key('bb-20-0')), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    });
+  });
+
+  test('the palette is vivid and the colours are easy to tell apart', () {
+    final hsv = [for (final c in kBubbleColors) HSVColor.fromColor(c)];
+    for (final h in hsv) {
+      expect(h.saturation, greaterThanOrEqualTo(0.85));
+      expect(h.value, greaterThanOrEqualTo(0.85));
+    }
+    double gap(HSVColor a, HSVColor b) {
+      final d = (a.hue - b.hue).abs();
+      return d > 180 ? 360 - d : d;
+    }
+
+    // Easy and Normal (the first five) must be far apart on the wheel; Hard's
+    // sixth (orange) just has to be distinct from the rest.
+    for (var i = 0; i < 5; i++) {
+      for (var j = i + 1; j < 5; j++) {
+        expect(gap(hsv[i], hsv[j]), greaterThanOrEqualTo(40),
+            reason: 'colours $i and $j are too alike');
+      }
+    }
+    for (var i = 0; i < 5; i++) {
+      expect(gap(hsv[i], hsv[5]), greaterThanOrEqualTo(20),
+          reason: 'colour $i vs the sixth');
+    }
   });
 }

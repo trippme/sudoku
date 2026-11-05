@@ -245,7 +245,8 @@ class _BubbleScreenState extends State<BubbleScreen> {
     if (!profile.hasIdentity) return null;
     final svc = context.read<LeaderboardService>();
     final secs = _clock.seconds < 1 ? 1 : _clock.seconds;
-    final hints = GameRef.hintsForScore(_game.score);
+    final hints =
+        GameRef.hintsForScore(_game.score, variant: _game.variant);
     final outcome = await svc.submitResult(
       gameId: _ref.id,
       email: profile.email,
@@ -594,28 +595,48 @@ class _BubbleScreenState extends State<BubbleScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 18,
+                    Row(
                       children: [
-                        for (var i = 0; i < counts.length; i++)
-                          Container(
-                            key: Key('bb-count-$i'),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              border: selColor == i
-                                  ? Border.all(
-                                      color: kBubbleColors[i], width: 2)
-                                  : null,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text('${counts[i]}',
-                                style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w800,
-                                    color: kBubbleColors[i])),
+                        // How many bubbles are selected, in their colour, like
+                        // the "-34" in the classic game.
+                        SizedBox(
+                          width: 64,
+                          child: selCount >= 2 && selColor != null
+                              ? Text('-$selCount',
+                                  key: const Key('bb-selcount'),
+                                  style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w800,
+                                      color: kBubbleColors[selColor]))
+                              : null,
+                        ),
+                        Expanded(
+                          child: Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: 14,
+                            children: [
+                              for (var i = 0; i < counts.length; i++)
+                                Container(
+                                  key: Key('bb-count-$i'),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    border: selColor == i
+                                        ? Border.all(
+                                            color: kBubbleColors[i], width: 2)
+                                        : null,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text('${counts[i]}',
+                                      style: TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w800,
+                                          color: kBubbleColors[i])),
+                                ),
+                            ],
                           ),
+                        ),
+                        const SizedBox(width: 64),
                       ],
                     ),
                   ],

@@ -98,7 +98,7 @@ class _BubbleOptionsScreenState extends State<BubbleOptionsScreen> {
                 crossAxisSpacing: 12,
                 childAspectRatio: 1.05,
                 children: [
-                  for (final s in BubbleSize.values)
+                  for (final s in BubbleSize.displayOrder)
                     _SizeCard(
                       key: Key('opt-size-${s.name}'),
                       size: s,

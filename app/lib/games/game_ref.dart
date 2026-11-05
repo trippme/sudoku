@@ -1,3 +1,5 @@
+import 'package:sudoku_app/games/bubble/bubble_variant.dart';
+
 /// Which game a backend `game_id` belongs to, plus its deal.
 ///
 /// The backend only knows an integer `game_id` per result, challenge and
@@ -13,11 +15,10 @@
 /// | Solitaire draw-3 | 1,200,000,000 + deal       |
 /// | Bubble Breaker   | 1,300,000,000 + variant × 10,000,000 + deal |
 ///
-/// A Bubble Breaker *variant* (0..23) is `((level × 4) + size) × 2 + (fixed ? 1 : 0)`
-/// with levels normal=0, easy=1, hard=2 and sizes medium=0, small=1, large=2,
-/// x-large=3, so variant 0 (medium, collapsing — the
-/// original game) keeps its original ids and every size/mode has its own
-/// leaderboard.
+/// A Bubble Breaker *variant* (0..53) is level × size × mode, so every
+/// combination has its own leaderboard; see `bubble_variant.dart` for the
+/// numbering. Variant 0 (medium, normal level, collapsing — the original game)
+/// keeps its original ids.
 ///
 /// Deals are 1..[maxDeal], so every id fits a signed 32-bit INT.
 enum GameKind { sudoku, freecell, solitaire, bubble }
@@ -29,19 +30,37 @@ class GameRef {
   static const int _solitaire3Base = 1200000000;
   static const int _bubbleBase = 1300000000;
   static const int _bubbleStride = 10000000;
-  static const int bubbleVariants = 24;
-  static const _bubbleSizeNames = ['Medium', 'Small', 'Large', 'X-Large'];
+  static const int bubbleVariants = kBubbleVariantCount;
+  static const _bubbleSizeNames = [
+    'Medium',
+    'Small',
+    'Large',
+    'X-Large',
+    'Standard',
+    'Dense',
+    'Tiny',
+    'Unified',
+    'Unified V2',
+  ];
   static const _bubbleLevelNames = ['normal', 'easy', 'hard'];
 
   /// Bubble Breaker ranks by HIGH score, but the backend ranks by fewest
-  /// "hints" then fastest time. So a score is stored as `hints = _scoreCeiling
-  /// - score` (a higher score is a lower number) with the play time as the
-  /// tie-break.
-  static const int _scoreCeiling = 100000;
-  static int hintsForScore(int score) =>
-      _scoreCeiling - score.clamp(0, _scoreCeiling - 1);
-  static int scoreFromHints(int hints) =>
-      (_scoreCeiling - hints).clamp(0, _scoreCeiling - 1);
+  /// "hints" then fastest time. So a score is stored as `hints = ceiling -
+  /// score` (a higher score is a lower number) with the play time as the
+  /// tie-break. The original boards use a ceiling of 100,000; the later, bigger
+  /// ones (variant 24+) use 10,000,000 because they can score past 100,000.
+  static int _ceilingFor(int variant) =>
+      bubbleVariantUsesBigScores(variant) ? 10000000 : 100000;
+
+  static int hintsForScore(int score, {int variant = 0}) {
+    final c = _ceilingFor(variant);
+    return c - score.clamp(0, c - 1);
+  }
+
+  static int scoreFromHints(int hints, {int variant = 0}) {
+    final c = _ceilingFor(variant);
+    return (c - hints).clamp(0, c - 1);
+  }
 
   final GameKind kind;
 
@@ -121,7 +140,10 @@ class GameRef {
               '${mistakes == null ? '' : ' · $mistakes mistake${mistakes == 1 ? '' : 's'}'}',
         );
       case GameKind.bubble:
-        return (headline: '${scoreFromHints(hints)} pts', detail: t);
+        return (
+          headline: '${scoreFromHints(hints, variant: variant)} pts',
+          detail: t
+        );
       case GameKind.freecell:
       case GameKind.solitaire:
         return (headline: t, detail: null);
@@ -145,12 +167,11 @@ class GameRef {
   String get label {
     var extra = kind == GameKind.solitaire && draw == 3 ? ' (draw 3)' : '';
     if (kind == GameKind.bubble && variant != 0) {
-      final size = _bubbleSizeNames[(variant ~/ 2) % 4];
-      final level = _bubbleLevelNames[(variant ~/ 2) ~/ 4];
+      final v = decodeBubbleVariant(variant);
       final parts = [
-        if (level != 'normal') level,
-        if ((variant ~/ 2) % 4 != 0) size.toLowerCase(),
-        if (variant.isOdd) 'fixed',
+        if (v.level != 0) _bubbleLevelNames[v.level],
+        if (v.size != 0) _bubbleSizeNames[v.size].toLowerCase(),
+        if (v.fixed) 'fixed',
       ];
       extra = ' (${parts.join(', ')})';
     }

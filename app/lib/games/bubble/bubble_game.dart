@@ -1,10 +1,32 @@
+import 'package:sudoku_app/games/bubble/bubble_variant.dart';
+
 /// Board sizes. The enum ORDER is part of the leaderboard id scheme (see
-/// `GameRef`), so only ever append.
+/// `bubble_variant.dart`), so only ever append.
 enum BubbleSize {
   medium(10, 12, 'Medium'),
   small(8, 10, 'Small'),
   large(12, 14, 'Large'),
-  xlarge(14, 16, 'X-Large');
+  xlarge(14, 16, 'X-Large'),
+  // The classic game's own size presets (portrait layout).
+  standard(10, 15, 'Standard'),
+  dense(15, 22, 'Dense'),
+  tiny(20, 30, 'Tiny'),
+  unified(9, 16, 'Unified'),
+  unifiedV2(13, 24, 'Unified V2');
+
+  /// The order sizes are listed in the Options screen: roughly smallest board
+  /// to largest.
+  static const List<BubbleSize> displayOrder = [
+    small,
+    medium,
+    standard,
+    unified,
+    large,
+    xlarge,
+    unifiedV2,
+    dense,
+    tiny,
+  ];
 
   final int width;
   final int height;
@@ -78,14 +100,16 @@ class BubbleGame {
   /// Number of colours in this game.
   int get colors => level.colors;
 
-  /// Level/size/mode variant used for leaderboard ids (see `GameRef`):
-  /// `((level × 4) + size) × 2 + (fixed ? 1 : 0)`. Normal level keeps the
-  /// original 0..7 range.
-  int get variant => (level.index * 4 + size.index) * 2 + (collapse ? 0 : 1);
+  /// Level/size/mode variant used for leaderboard ids (see
+  /// `bubble_variant.dart`).
+  int get variant => encodeBubbleVariant(
+      level: level.index, size: size.index, fixed: !collapse);
 
-  static BubbleSize sizeOfVariant(int v) => BubbleSize.values[(v ~/ 2) % 4];
-  static BubbleLevel levelOfVariant(int v) => BubbleLevel.values[(v ~/ 2) ~/ 4];
-  static bool collapseOfVariant(int v) => v.isEven;
+  static BubbleSize sizeOfVariant(int v) =>
+      BubbleSize.values[decodeBubbleVariant(v).size];
+  static BubbleLevel levelOfVariant(int v) =>
+      BubbleLevel.values[decodeBubbleVariant(v).level];
+  static bool collapseOfVariant(int v) => !decodeBubbleVariant(v).fixed;
 
   int get width => size.width;
   int get height => size.height;

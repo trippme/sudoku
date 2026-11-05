@@ -1,24 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:sudoku_app/games/bubble/bubble_prefs.dart';
 
-/// Bright, saturated colours. Order matters: Easy plays with the first four
-/// (the most distinct), Normal five, Hard all six.
+/// Fully saturated colours, spread around the colour wheel so no two are easy
+/// to confuse. Order matters: Easy plays with the first four (blue, red, green,
+/// yellow: the most distinct), Normal adds purple, Hard adds orange.
 const List<Color> kBubbleColors = [
-  Color(0xFF7B3DFF), // violet
-  Color(0xFFFF3347), // red
-  Color(0xFF22D14F), // green
-  Color(0xFFFFC61A), // gold
-  Color(0xFFFF35A8), // pink
-  Color(0xFFFF7A1A), // orange
+  Color(0xFF1E88FF), // blue
+  Color(0xFFFF1F3D), // red
+  Color(0xFF00E04E), // green
+  Color(0xFFFFE000), // yellow
+  Color(0xFFC21BFF), // purple
+  Color(0xFFFF8A00), // orange
 ];
 
 /// One shape per colour (Shapes theme), so colours never rely on hue alone.
 const List<IconData> kBubbleGlyphs = [
-  Icons.nightlight_round, // violet: crescent
+  Icons.nightlight_round, // blue: crescent
   Icons.star_rounded, // red: star
   Icons.change_history_rounded, // green: triangle
   Icons.radio_button_unchecked, // gold: ring
-  Icons.diamond_rounded, // pink: gem
+  Icons.diamond_rounded, // purple: gem
   Icons.favorite_rounded, // orange: heart
 ];
 
@@ -68,22 +69,30 @@ class BubbleView extends StatelessWidget {
                   center: const Alignment(-0.3, -0.45),
                   radius: 0.95,
                   colors: [
-                    Color.lerp(base, Colors.white, 0.5)!,
+                    Color.lerp(base, Colors.white, 0.6)!,
                     base,
-                    Color.lerp(base, Colors.black, 0.4)!,
+                    Color.lerp(base, Colors.black, 0.16)!,
                   ],
-                  stops: const [0, 0.5, 1],
+                  stops: const [0, 0.55, 1],
                 ),
                 border: Border.all(
-                  color: Color.lerp(base, Colors.black, 0.55)!,
-                  width: size * 0.05,
+                  color: Color.lerp(base, Colors.black, 0.35)!,
+                  width: size * 0.04,
                 ),
+                boxShadow: [
+                  // A soft glow in the bubble's own colour makes it stand off
+                  // the black board.
+                  BoxShadow(
+                    color: base.withValues(alpha: 0.45),
+                    blurRadius: size * 0.16,
+                  ),
+                ],
               ),
               child: SizedBox.expand(),
             ),
             if (theme == BubbleTheme.shapes)
               Icon(glyph,
-                  size: size * 0.52, color: Colors.white.withValues(alpha: 0.88)),
+                  size: size * 0.52, color: Colors.white.withValues(alpha: 0.92)),
             // Gloss.
             Positioned(
               left: size * 0.2,

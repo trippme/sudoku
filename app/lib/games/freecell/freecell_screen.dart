@@ -156,24 +156,38 @@ class _FreeCellScreenState extends State<FreeCellScreen> {
 
   void _tryMove(Pile to, int toIndex) {
     final s = _sel!;
-    if (_game.move(s.pile, s.index, s.count, to, toIndex)) {
+    if (_game.play(s.pile, s.index, s.count, to, toIndex)) {
       _afterMove();
     }
   }
 
+  /// Tap: with nothing picked up, send the card (or stack) where it belongs —
+  /// foundation, a matching column, a free cell. Otherwise it's a destination
+  /// for the picked-up cards, or (if that fails) becomes the new pick-up.
   void _tapColumnCard(int c, int i) {
     final s = _sel;
+    final count = _game.columns[c].length - i;
     if (s != null) {
-      if (s.pile == Pile.column &&
-          s.index == c &&
-          s.count == _game.columns[c].length - i) {
+      if (s.pile == Pile.column && s.index == c && s.count == count) {
         setState(() => _sel = null);
         return;
       }
       final before = _game.moves;
       _tryMove(Pile.column, c);
       if (_game.moves != before) return;
+    } else if (_game.isSequence(c, i)) {
+      final d = _game.bestDestination(Pile.column, c, count);
+      if (d != null && _game.play(Pile.column, c, count, d.pile, d.index)) {
+        _afterMove();
+        return;
+      }
     }
+    _pickUpColumn(c, i);
+  }
+
+  /// Long-press: pick the card (or stack) up without auto-sending it, so you
+  /// can choose the destination yourself (e.g. an empty column).
+  void _pickUpColumn(int c, int i) {
     setState(() {
       _sel = _game.isSequence(c, i)
           ? _Sel(Pile.column, c, _game.columns[c].length - i)
@@ -193,8 +207,19 @@ class _FreeCellScreenState extends State<FreeCellScreen> {
     } else if (s != null && card == null) {
       _tryMove(Pile.cell, k);
     } else if (card != null) {
-      setState(() => _sel = _Sel(Pile.cell, k, 1));
+      if (s == null) {
+        final d = _game.bestDestination(Pile.cell, k, 1);
+        if (d != null && _game.play(Pile.cell, k, 1, d.pile, d.index)) {
+          _afterMove();
+          return;
+        }
+      }
+      _pickUpCell(k);
     }
+  }
+
+  void _pickUpCell(int k) {
+    if (_game.cells[k] != null) setState(() => _sel = _Sel(Pile.cell, k, 1));
   }
 
   void _tapFoundation() {
@@ -291,6 +316,16 @@ class _FreeCellScreenState extends State<FreeCellScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
+                    const SizedBox(height: 4),
+                    Center(
+                      child: Text(
+                        'Tap a card to send it · long-press to pick it up',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                      ),
+                    ),
                     Center(
                       child: Text(
                         _game.won
@@ -319,6 +354,7 @@ class _FreeCellScreenState extends State<FreeCellScreen> {
       key: Key('fc-cell-$k'),
       behavior: HitTestBehavior.opaque,
       onTap: () => _tapCell(k),
+      onLongPress: () => _pickUpCell(k),
       child: card == null
           ? EmptySlot(width: cw)
           : PlayingCardView(card: card, width: cw, selected: selected),
@@ -363,6 +399,7 @@ class _FreeCellScreenState extends State<FreeCellScreen> {
               child: GestureDetector(
                 key: Key('fc-card-$c-$i'),
                 onTap: () => _tapColumnCard(c, i),
+                onLongPress: () => _pickUpColumn(c, i),
                 child: PlayingCardView(
                   card: col[i],
                   width: cw,

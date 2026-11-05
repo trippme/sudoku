@@ -74,7 +74,7 @@ void main() {
         expect(ref.id, lessThan(2147483647));
       }
     }
-    expect(GameRef.bubbleVariants, 24);
+    expect(GameRef.bubbleVariants, 54);
     expect(ids.length, GameRef.bubbleVariants * 2); // no collisions
     // No bubble id decodes as another game, and vice versa.
     expect(GameRef.decode(GameRef.freecell(1000000).id).kind, GameKind.freecell);
@@ -103,5 +103,26 @@ void main() {
         'Bubble Breaker #5 (hard, small, fixed)');
     expect(GameRef.bubble(5, variant: 23).label,
         'Bubble Breaker #5 (hard, x-large, fixed)');
+  });
+
+  test('classic-size bubble boards: ids round trip and labels', () {
+    for (final v in [24, 25, 30, 41, 53]) {
+      final ref = GameRef.bubble(777, variant: v);
+      final back = GameRef.decode(ref.id);
+      expect((back.kind, back.deal, back.variant), (GameKind.bubble, 777, v));
+      expect(ref.id, lessThan(2147483647));
+    }
+    expect(GameRef.bubble(9, variant: 24).label, 'Bubble Breaker #9 (standard)');
+    expect(GameRef.bubble(9, variant: 25).label,
+        'Bubble Breaker #9 (standard, fixed)');
+    expect(GameRef.bubble(9, variant: 26).label, 'Bubble Breaker #9 (dense)');
+    expect(GameRef.bubble(9, variant: 28).label, 'Bubble Breaker #9 (tiny)');
+    expect(GameRef.bubble(9, variant: 30).label, 'Bubble Breaker #9 (unified)');
+    expect(GameRef.bubble(9, variant: 32).label,
+        'Bubble Breaker #9 (unified v2)');
+    expect(GameRef.bubble(9, variant: 34).label,
+        'Bubble Breaker #9 (easy, standard)');
+    expect(GameRef.bubble(9, variant: 53).label,
+        'Bubble Breaker #9 (hard, unified v2, fixed)');
   });
 }

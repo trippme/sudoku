@@ -114,8 +114,17 @@ void main() {
       expect(BubbleSize.xlarge.width * BubbleSize.xlarge.height,
           greaterThan(BubbleSize.large.width * BubbleSize.large.height));
       // The enum order is baked into leaderboard ids: never reorder it.
-      expect(BubbleSize.values.map((s) => s.name),
-          ['medium', 'small', 'large', 'xlarge']);
+      expect(BubbleSize.values.map((s) => s.name), [
+        'medium',
+        'small',
+        'large',
+        'xlarge',
+        'standard',
+        'dense',
+        'tiny',
+        'unified',
+        'unifiedV2',
+      ]);
     });
 
     test('the same number gives different boards at different sizes', () {

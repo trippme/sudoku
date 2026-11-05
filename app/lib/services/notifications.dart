@@ -174,7 +174,7 @@ class NotificationService {
           GameKind.sudoku => 'Their time: ${_fmt(r.seconds)} · '
               '${r.hints} hint${r.hints == 1 ? '' : 's'}',
           GameKind.bubble => 'Their score: '
-              '${GameRef.scoreFromHints(r.hints)} · ${_fmt(r.seconds)}',
+              '${GameRef.scoreFromHints(r.hints, variant: GameRef.decode(r.gameId).variant)} · ${_fmt(r.seconds)}',
           _ => 'Their time: ${_fmt(r.seconds)}',
         },
         payloadInbox,

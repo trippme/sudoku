@@ -6,7 +6,8 @@ class _Snapshot {
   final List<List<PlayingCard>> columns;
   final List<PlayingCard?> cells;
   final List<int> foundations;
-  _Snapshot(this.columns, this.cells, this.foundations);
+  final int moves;
+  _Snapshot(this.columns, this.cells, this.foundations, this.moves);
 }
 
 /// FreeCell rules + state. Pure Dart (no Flutter) so it is trivially testable.
@@ -110,8 +111,23 @@ class FreeCellGame {
   /// Performs the move if legal; returns whether it happened.
   bool move(Pile from, int index, int count, Pile to, [int toIndex = 0]) {
     if (!canMove(from, index, count, to, toIndex)) return false;
-    final cards = _peek(from, index, count)!;
     _history.add(_snapshot());
+    _apply(from, index, count, to, toIndex);
+    return true;
+  }
+
+  /// A full player move: [move] followed by sweeping any now-safe cards up to
+  /// the foundations, all undone together by a single [undo].
+  bool play(Pile from, int index, int count, Pile to, [int toIndex = 0]) {
+    if (!canMove(from, index, count, to, toIndex)) return false;
+    _history.add(_snapshot());
+    _apply(from, index, count, to, toIndex);
+    _sweep();
+    return true;
+  }
+
+  void _apply(Pile from, int index, int count, Pile to, int toIndex) {
+    final cards = _peek(from, index, count)!;
     switch (from) {
       case Pile.column:
         final col = columns[index];
@@ -130,7 +146,37 @@ class FreeCellGame {
         foundations[cards.first.suit.index]++;
     }
     moves++;
-    return true;
+  }
+
+  /// Where tapping this card should send it, or null if nowhere sensible.
+  /// Priority: foundation, a column it fits on, a free cell, then (for a single
+  /// card) an empty column. Stacks only ever go onto a matching column.
+  ({Pile pile, int index})? bestDestination(Pile from, int index, int count) {
+    final cards = _peek(from, index, count);
+    if (cards == null) return null;
+    if (count == 1 && canMove(from, index, 1, Pile.foundation, 0)) {
+      return (pile: Pile.foundation, index: 0);
+    }
+    for (var d = 0; d < numColumns; d++) {
+      if (columns[d].isNotEmpty && canMove(from, index, count, Pile.column, d)) {
+        return (pile: Pile.column, index: d);
+      }
+    }
+    if (count != 1) return null;
+    if (from == Pile.column) {
+      for (var k = 0; k < numCells; k++) {
+        if (cells[k] == null) return (pile: Pile.cell, index: k);
+      }
+    }
+    for (var d = 0; d < numColumns; d++) {
+      // A lone card already at the base of its column gains nothing.
+      if (columns[d].isEmpty &&
+          !(from == Pile.column && columns[index].length == 1) &&
+          canMove(from, index, 1, Pile.column, d)) {
+        return (pile: Pile.column, index: d);
+      }
+    }
+    return null;
   }
 
   /// Sends the single card at the given spot to its foundation if it fits.
@@ -138,8 +184,15 @@ class FreeCellGame {
       move(from, index, 1, Pile.foundation);
 
   /// Moves every "safe" card (one that can never be needed on the tableau) up
-  /// to the foundations. Returns how many cards moved.
+  /// to the foundations as one undoable step. Returns how many cards moved.
   int autoFoundation() {
+    _history.add(_snapshot());
+    final moved = _sweep();
+    if (moved == 0) _history.removeLast();
+    return moved;
+  }
+
+  int _sweep() {
     var moved = 0;
     var progress = true;
     while (progress) {
@@ -147,14 +200,18 @@ class FreeCellGame {
       for (var c = 0; c < numColumns; c++) {
         if (columns[c].isNotEmpty &&
             _safe(columns[c].last) &&
-            toFoundation(Pile.column, c)) {
+            canMove(Pile.column, c, 1, Pile.foundation, 0)) {
+          _apply(Pile.column, c, 1, Pile.foundation, 0);
           moved++;
           progress = true;
         }
       }
       for (var k = 0; k < numCells; k++) {
         final card = cells[k];
-        if (card != null && _safe(card) && toFoundation(Pile.cell, k)) {
+        if (card != null &&
+            _safe(card) &&
+            canMove(Pile.cell, k, 1, Pile.foundation, 0)) {
+          _apply(Pile.cell, k, 1, Pile.foundation, 0);
           moved++;
           progress = true;
         }
@@ -201,6 +258,7 @@ class FreeCellGame {
         [for (final c in columns) List<PlayingCard>.of(c)],
         List<PlayingCard?>.of(cells),
         List<int>.of(foundations),
+        moves,
       );
 
   void undo() {
@@ -217,7 +275,7 @@ class FreeCellGame {
     for (var i = 0; i < 4; i++) {
       foundations[i] = s.foundations[i];
     }
-    if (moves > 0) moves--;
+    moves = s.moves;
   }
 
   Map<String, dynamic> toJson() => {

@@ -45,7 +45,7 @@ void _bigScreen(WidgetTester tester) {
 }
 
 void main() {
-  testWidgets('tapping a card sends it somewhere; undo brings it back',
+  testWidgets('a tap only picks a card up; tapping it again sends it',
       (tester) async {
     _bigScreen(tester);
     await tester.pumpWidget(const MaterialApp(
@@ -54,34 +54,64 @@ void main() {
     expect(find.text('FreeCell #1'), findsOneWidget);
     expect(find.textContaining('Moves: 0'), findsOneWidget);
 
-    // Column 0 of deal #1 has 7 cards; one tap on the bottom card moves it
-    // (to a column it fits on, or a free cell) with no second tap needed.
+    // One tap is just a selection: nothing moves.
+    await tester.tap(find.byKey(const Key('fc-card-0-6')));
+    await tester.pump();
+    expect(find.textContaining('Moves: 0'), findsOneWidget);
+    expect(find.byKey(const Key('fc-card-0-6')), findsOneWidget);
+
+    // Tapping the picked-up card again auto-sends it.
     await tester.tap(find.byKey(const Key('fc-card-0-6')));
     await tester.pump();
     expect(find.textContaining('Moves: 1'), findsOneWidget);
     expect(find.byKey(const Key('fc-card-0-6')), findsNothing);
+    await tester.pump(const Duration(seconds: 1)); // let the glide finish
 
     await tester.tap(find.byKey(const Key('fc-undo')));
-    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
     expect(find.textContaining('Moves: 0'), findsOneWidget);
     expect(find.byKey(const Key('fc-card-0-6')), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox()); // dispose the clock timer
   });
 
-  testWidgets('long-press picks a card up, then a free cell takes it',
+  testWidgets('pick a card up, then tap a free cell to place it',
       (tester) async {
     _bigScreen(tester);
     await tester.pumpWidget(const MaterialApp(
       home: FreeCellScreen(persist: false, initialDeal: 1),
     ));
-    await tester.longPress(find.byKey(const Key('fc-card-0-6')));
+    await tester.tap(find.byKey(const Key('fc-card-0-6')));
     await tester.pump();
-    expect(find.textContaining('Moves: 0'), findsOneWidget); // not auto-sent
     await tester.tap(find.byKey(const Key('fc-cell-2')));
     await tester.pump();
     expect(find.textContaining('Moves: 1'), findsOneWidget);
     expect(find.byKey(const Key('fc-card-0-6')), findsNothing);
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('cards glide instead of jumping', (tester) async {
+    _bigScreen(tester);
+    await tester.pumpWidget(const MaterialApp(
+      home: FreeCellScreen(persist: false, initialDeal: 1),
+    ));
+    final card = find.byKey(const Key('fc-card-0-6'));
+    final start = tester.getTopLeft(card);
+    await tester.tap(card);
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('fc-cell-0')));
+    await tester.pump(); // move registered; animation begins
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // Partway through, the card is neither where it started nor at its goal.
+    final mid = tester.getTopLeft(find.byKey(const Key('fc-cell-0')));
+    final moving = tester
+        .widgetList<AnimatedPositioned>(find.byType(AnimatedPositioned))
+        .any((p) => p.duration == kCardMoveDuration);
+    expect(moving, isTrue);
+    expect(start, isNot(mid));
+    await tester.pump(const Duration(seconds: 1));
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -116,7 +146,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const Key('fc-found-3')));
     await tester.pump(); // move
-    await tester.pump(); // post-frame win dialog
+    await tester.pump(const Duration(seconds: 1)); // glide, then win dialog
     await tester.pump();
 
     expect(find.text('You won! 🎉'), findsOneWidget);

@@ -49,6 +49,29 @@ class PlayingCardView extends StatelessWidget {
   }
 }
 
+/// A face-down card of the given [width].
+class CardBackView extends StatelessWidget {
+  final double width;
+  const CardBackView({super.key, required this.width});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: width * kCardAspect,
+      decoration: BoxDecoration(
+        color: Colors.indigo.shade400,
+        borderRadius: BorderRadius.circular(width * 0.1),
+        border: Border.all(color: Colors.indigo.shade900, width: 1),
+      ),
+      child: Center(
+        child: Icon(Icons.grid_4x4,
+            size: width * 0.5, color: Colors.white.withValues(alpha: 0.35)),
+      ),
+    );
+  }
+}
+
 /// An empty pile outline, optionally with a faint [hint] (e.g. a suit symbol).
 class EmptySlot extends StatelessWidget {
   final double width;

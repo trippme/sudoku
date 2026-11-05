@@ -32,12 +32,6 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         : svc.friends(widget.gameId, [...profile.friends, profile.email]);
   }
 
-  static String _fmt(int seconds) {
-    final m = seconds ~/ 60;
-    final s = (seconds % 60).toString().padLeft(2, '0');
-    return '$m:$s';
-  }
-
   @override
   Widget build(BuildContext context) {
     final profile = context.watch<Profile>();
@@ -74,7 +68,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 : 'No friends have finished this game yet.',
             showEmail: true,
             highlightEmail: profile.email,
-            usesHints: GameRef.decode(widget.gameId).usesHints,
+            game: GameRef.decode(widget.gameId),
           ),
           const SizedBox(height: 16),
           const _SectionTitle('Global'),
@@ -83,7 +77,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             emptyText: 'No results yet — be the first to finish this game!',
             showEmail: false,
             highlightEmail: profile.email,
-            usesHints: GameRef.decode(widget.gameId).usesHints,
+            game: GameRef.decode(widget.gameId),
           ),
         ],
       ),
@@ -110,15 +104,15 @@ class _Results extends StatelessWidget {
   final bool showEmail;
   final String highlightEmail;
 
-  /// Sudoku rows show hints/mistakes; card games are ranked on time alone.
-  final bool usesHints;
+  /// Decides how each result is worded (time, hints, score…).
+  final GameRef game;
 
   const _Results({
     required this.future,
     required this.emptyText,
     required this.showEmail,
     required this.highlightEmail,
-    required this.usesHints,
+    required this.game,
   });
 
   @override
@@ -153,17 +147,15 @@ class _Results extends StatelessWidget {
     );
   }
 
-  Widget? _subtitle(ResultEntry e) {
+  Widget? _subtitle(ResultEntry e, String? detail) {
     final email = showEmail && e.email != null ? e.email! : '';
-    if (!usesHints) return email.isEmpty ? null : Text(email);
-    return Text(
-      '${e.hints} hint${e.hints == 1 ? '' : 's'} · '
-      '${e.mistakes} mistake${e.mistakes == 1 ? '' : 's'}'
-      '${email.isEmpty ? '' : '\n$email'}',
-    );
+    final lines = [?detail, if (email.isNotEmpty) email];
+    return lines.isEmpty ? null : Text(lines.join('\n'));
   }
 
   Widget _row(BuildContext context, int rank, ResultEntry e) {
+    final res = game.describeResult(
+        seconds: e.seconds, hints: e.hints, mistakes: e.mistakes);
     final isMe = showEmail && e.email != null && e.email == highlightEmail;
     return Container(
       color: isMe ? Theme.of(context).colorScheme.primaryContainer : null,
@@ -174,10 +166,10 @@ class _Results extends StatelessWidget {
           child: Text('$rank', style: const TextStyle(fontSize: 12)),
         ),
         title: Text(e.name.isEmpty ? '(anonymous)' : e.name),
-        subtitle: _subtitle(e),
-        isThreeLine: showEmail && usesHints,
+        subtitle: _subtitle(e, res.detail),
+        isThreeLine: showEmail && res.detail != null,
         trailing: Text(
-          _LeaderboardScreenState._fmt(e.seconds),
+          res.headline,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
       ),

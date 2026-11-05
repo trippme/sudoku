@@ -170,10 +170,13 @@ class NotificationService {
       await _show(
         _resultIdBase ^ (r.id & 0xFFFFFF),
         '$who finished ${_title(r.gameId)}',
-        GameRef.decode(r.gameId).usesHints
-            ? 'Their time: ${_fmt(r.seconds)} · '
-                '${r.hints} hint${r.hints == 1 ? '' : 's'}'
-            : 'Their time: ${_fmt(r.seconds)}',
+        switch (GameRef.decode(r.gameId).kind) {
+          GameKind.sudoku => 'Their time: ${_fmt(r.seconds)} · '
+              '${r.hints} hint${r.hints == 1 ? '' : 's'}',
+          GameKind.bubble => 'Their score: '
+              '${GameRef.scoreFromHints(r.hints)} · ${_fmt(r.seconds)}',
+          _ => 'Their time: ${_fmt(r.seconds)}',
+        },
         payloadInbox,
       );
       shown++;

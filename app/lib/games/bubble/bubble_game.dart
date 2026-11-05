@@ -3,7 +3,8 @@
 enum BubbleSize {
   medium(10, 12, 'Medium'),
   small(8, 10, 'Small'),
-  large(12, 14, 'Large');
+  large(12, 14, 'Large'),
+  xlarge(14, 16, 'X-Large');
 
   final int width;
   final int height;

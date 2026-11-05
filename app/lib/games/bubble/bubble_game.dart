@@ -12,8 +12,20 @@ enum BubbleSize {
   const BubbleSize(this.width, this.height, this.label);
 }
 
+/// Difficulty = how many colours are in play (more colours, fewer matches).
+/// Like [BubbleSize] the ORDER is part of the leaderboard id scheme: append only.
+enum BubbleLevel {
+  normal(5, 'Normal'),
+  easy(4, 'Easy'),
+  hard(6, 'Hard');
+
+  final int colors;
+  final String label;
+  const BubbleLevel(this.colors, this.label);
+}
+
 /// One bubble. [id] is stable for its whole life so the UI can animate it
-/// falling; [color] is 0..[BubbleGame.numColors]-1.
+/// falling; [color] is 0..[BubbleGame.colors]-1.
 class Bubble {
   final int id;
   final int color;
@@ -27,11 +39,11 @@ class Bubble {
 /// Clearing the whole board is worth a bonus. The game ends when no group of
 /// two remains.
 class BubbleGame {
-  static const int numColors = 5;
   static const int clearBonus = 1000;
 
   final int deal;
   final BubbleSize size;
+  final BubbleLevel level;
 
   /// When true (the classic rule) empty columns slide away so the remaining
   /// ones close ranks to the left; when false the board stays fixed and an
@@ -43,21 +55,36 @@ class BubbleGame {
   /// right-hand end.
   final List<List<Bubble>> columns;
   int score;
+
+  /// Pops made so far (the "tap count").
   int moves;
+
+  /// Points from the single best pop so far.
+  int bestPop;
+
+  final List<_Snapshot> _history = [];
 
   BubbleGame({
     required this.deal,
     required this.columns,
     this.size = BubbleSize.medium,
+    this.level = BubbleLevel.normal,
     this.collapse = true,
     this.score = 0,
     this.moves = 0,
+    this.bestPop = 0,
   });
 
-  /// Size/mode variant 0..5 used for leaderboard ids (see `GameRef`).
-  int get variant => size.index * 2 + (collapse ? 0 : 1);
+  /// Number of colours in this game.
+  int get colors => level.colors;
 
-  static BubbleSize sizeOfVariant(int v) => BubbleSize.values[v ~/ 2];
+  /// Level/size/mode variant used for leaderboard ids (see `GameRef`):
+  /// `((level × 4) + size) × 2 + (fixed ? 1 : 0)`. Normal level keeps the
+  /// original 0..7 range.
+  int get variant => (level.index * 4 + size.index) * 2 + (collapse ? 0 : 1);
+
+  static BubbleSize sizeOfVariant(int v) => BubbleSize.values[(v ~/ 2) % 4];
+  static BubbleLevel levelOfVariant(int v) => BubbleLevel.values[(v ~/ 2) ~/ 4];
   static bool collapseOfVariant(int v) => v.isEven;
 
   int get width => size.width;
@@ -67,6 +94,7 @@ class BubbleGame {
   factory BubbleGame.deal(
     int number, {
     BubbleSize size = BubbleSize.medium,
+    BubbleLevel level = BubbleLevel.normal,
     bool collapse = true,
   }) {
     var seed = number;
@@ -76,12 +104,16 @@ class BubbleGame {
       final col = <Bubble>[];
       for (var r = 0; r < size.height; r++) {
         seed = (seed * 214013 + 2531011) & 0xFFFFFFFF;
-        col.add(Bubble(id++, ((seed >> 16) & 0x7FFF) % numColors));
+        col.add(Bubble(id++, ((seed >> 16) & 0x7FFF) % level.colors));
       }
       cols.add(col);
     }
     return BubbleGame(
-        deal: number, columns: cols, size: size, collapse: collapse);
+        deal: number,
+        columns: cols,
+        size: size,
+        level: level,
+        collapse: collapse);
   }
 
   int get remaining => columns.fold(0, (n, c) => n + c.length);
@@ -106,6 +138,31 @@ class BubbleGame {
   }
 
   bool get over => cleared || !hasMoves;
+
+  /// How many bubbles of each colour are left (index = colour).
+  List<int> colorCounts() {
+    final counts = List<int>.filled(colors, 0);
+    for (final c in columns) {
+      for (final b in c) {
+        counts[b.color]++;
+      }
+    }
+    return counts;
+  }
+
+  bool get canUndo => _history.isNotEmpty;
+
+  /// Takes back the last pop (restoring score, taps and the bubbles).
+  void undo() {
+    if (_history.isEmpty) return;
+    final snap = _history.removeLast();
+    columns
+      ..clear()
+      ..addAll(snap.columns.map((c) => List<Bubble>.of(c)));
+    score = snap.score;
+    moves = snap.moves;
+    bestPop = snap.bestPop;
+  }
 
   Bubble? at(int c, int r) {
     if (c < 0 || c >= columns.length) return null;
@@ -143,6 +200,12 @@ class BubbleGame {
   int pop(int c, int r) {
     final group = groupAt(c, r);
     if (group.isEmpty) return 0;
+    _history.add(_Snapshot(
+      [for (final col in columns) List<Bubble>.of(col)],
+      score,
+      moves,
+      bestPop,
+    ));
     // Remove from the top down so row indices stay valid.
     final byColumn = <int, List<int>>{};
     for (final (cc, rr) in group) {
@@ -162,7 +225,9 @@ class BubbleGame {
         ..addAll(List.generate(width - kept.length, (_) => <Bubble>[]));
     }
 
-    score += pointsFor(group.length);
+    final points = pointsFor(group.length);
+    if (points > bestPop) bestPop = points;
+    score += points;
     moves++;
     if (cleared) score += clearBonus;
     return group.length;
@@ -171,9 +236,11 @@ class BubbleGame {
   Map<String, dynamic> toJson() => {
         'deal': deal,
         'size': size.index,
+        'level': level.index,
         'collapse': collapse,
         'score': score,
         'moves': moves,
+        'bestPop': bestPop,
         // id * 8 + color, bottom→top.
         'columns': [
           for (final c in columns) [for (final b in c) b.id * 8 + b.color]
@@ -183,9 +250,11 @@ class BubbleGame {
   factory BubbleGame.fromJson(Map<String, dynamic> j) => BubbleGame(
         deal: j['deal'] as int,
         size: BubbleSize.values[(j['size'] ?? 0) as int],
+        level: BubbleLevel.values[(j['level'] ?? 0) as int],
         collapse: (j['collapse'] ?? true) as bool,
         score: j['score'] as int,
         moves: j['moves'] as int,
+        bestPop: (j['bestPop'] ?? 0) as int,
         columns: [
           for (final c in j['columns'] as List)
             [
@@ -193,4 +262,12 @@ class BubbleGame {
             ]
         ],
       );
+}
+
+class _Snapshot {
+  final List<List<Bubble>> columns;
+  final int score;
+  final int moves;
+  final int bestPop;
+  _Snapshot(this.columns, this.score, this.moves, this.bestPop);
 }

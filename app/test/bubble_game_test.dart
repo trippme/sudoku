@@ -194,12 +194,114 @@ void main() {
     });
 
     test('variant mapping round trips', () {
-      for (var v = 0; v < BubbleSize.values.length * 2; v++) {
+      for (var v = 0; v < 24; v++) {
         final g = BubbleGame.deal(1,
             size: BubbleGame.sizeOfVariant(v),
+            level: BubbleGame.levelOfVariant(v),
             collapse: BubbleGame.collapseOfVariant(v));
         expect(g.variant, v);
       }
+      // Normal level keeps the original 0..7 variants.
+      expect(BubbleGame.deal(1).variant, 0);
+      expect(BubbleGame.deal(1, size: BubbleSize.xlarge, collapse: false).variant,
+          7);
     });
   });
+
+  group('levels, undo and stats', () {
+    test('level sets how many colours are in play', () {
+      for (final level in BubbleLevel.values) {
+        final g = BubbleGame.deal(11, level: level);
+        final used = g.columns.expand((c) => c).map((b) => b.color).toSet();
+        expect(used.length, level.colors);
+        expect(used.every((c) => c < level.colors), isTrue);
+        expect(g.colors, level.colors);
+        expect(g.colorCounts().length, level.colors);
+        expect(g.colorCounts().fold(0, (a, b) => a + b), g.remaining);
+      }
+      expect(BubbleLevel.easy.colors, lessThan(BubbleLevel.normal.colors));
+      expect(BubbleLevel.hard.colors, greaterThan(BubbleLevel.normal.colors));
+      // Enum order is baked into leaderboard ids: never reorder it.
+      expect(BubbleLevel.values.map((l) => l.name), ['normal', 'easy', 'hard']);
+    });
+
+    test('the same board number differs between levels', () {
+      expect(BubbleGame.deal(7, level: BubbleLevel.hard).toJson().toString(),
+          isNot(BubbleGame.deal(7).toJson().toString()));
+    });
+
+    test('colour counts follow pops', () {
+      final g = board(['11', '22'], width: 10);
+      expect(g.colorCounts().sublist(0, 3), [0, 2, 2]);
+      g.pop(0, 0);
+      expect(g.colorCounts().sublist(0, 3), [0, 2, 0]);
+    });
+
+    test('undo restores bubbles, score, taps and best pop', () {
+      final g = BubbleGame.deal(21);
+      final before = g.toJson().toString();
+      expect(g.canUndo, isFalse);
+      g.undo(); // harmless when empty
+      expect(g.toJson().toString(), before);
+
+      final spot = _firstGroup(g);
+      g.pop(spot.$1, spot.$2);
+      expect(g.canUndo, isTrue);
+      expect(g.score, greaterThan(0));
+      expect(g.bestPop, g.score);
+      g.undo();
+      expect(g.toJson().toString(), before);
+      expect((g.score, g.moves, g.bestPop), (0, 0, 0));
+      expect(g.canUndo, isFalse);
+    });
+
+    test('undo steps back through several pops', () {
+      final g = BubbleGame.deal(33);
+      final start = g.toJson().toString();
+      var pops = 0;
+      while (pops < 3 && g.hasMoves) {
+        final s = _firstGroup(g);
+        g.pop(s.$1, s.$2);
+        pops++;
+      }
+      expect(g.moves, pops);
+      for (var i = 0; i < pops; i++) {
+        g.undo();
+      }
+      expect(g.toJson().toString(), start);
+    });
+
+    test('bestPop tracks the largest single pop', () {
+      final g = board(['111', '122'], width: 10);
+      g.pop(2, 0); // the pair of 2s: 2 points
+      expect(g.bestPop, 2);
+      g.pop(0, 0); // now the 1s that remain
+      expect(g.bestPop, greaterThanOrEqualTo(2));
+      expect(g.score, greaterThanOrEqualTo(g.bestPop));
+    });
+
+    test('level and bestPop survive a save', () {
+      final g = BubbleGame.deal(3, level: BubbleLevel.hard);
+      final s = _firstGroup(g);
+      g.pop(s.$1, s.$2);
+      final r = BubbleGame.fromJson(g.toJson());
+      expect((r.level, r.bestPop, r.moves), (BubbleLevel.hard, g.bestPop, 1));
+      // Older saves have neither field.
+      final old = g.toJson()
+        ..remove('level')
+        ..remove('bestPop');
+      final o = BubbleGame.fromJson(old);
+      expect((o.level, o.bestPop), (BubbleLevel.normal, 0));
+    });
+  });
+}
+
+/// Any (column, row) that belongs to a poppable group.
+(int, int) _firstGroup(BubbleGame g) {
+  for (var c = 0; c < g.columns.length; c++) {
+    for (var r = 0; r < g.columns[c].length; r++) {
+      if (g.groupAt(c, r).isNotEmpty) return (c, r);
+    }
+  }
+  throw StateError('no group');
 }

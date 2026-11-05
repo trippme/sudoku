@@ -1,17 +1,22 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:sudoku_app/games/cards/card_widgets.dart';
 import 'package:sudoku_app/games/cards/game_clock.dart';
+import 'package:sudoku_app/games/cards/playing_card.dart';
 import 'package:sudoku_app/games/cards/win_flow.dart';
+import 'package:sudoku_app/games/freecell/freecell_game.dart';
 import 'package:sudoku_app/games/game_ref.dart';
+import 'package:sudoku_app/services/storage.dart';
 import 'package:sudoku_app/ui/leaderboard_screen.dart';
 import 'package:sudoku_app/ui/send_to_friends.dart';
-import 'package:sudoku_app/games/cards/playing_card.dart';
-import 'package:sudoku_app/games/freecell/freecell_game.dart';
-import 'package:sudoku_app/services/storage.dart';
 
 const String kFreeCellSaveKey = 'freecell.save';
+const String kFreeCellAutoCollectKey = 'freecell.autocollect';
+
+/// How long a card takes to glide to its new spot.
+const Duration kCardMoveDuration = Duration(milliseconds: 450);
 
 /// FreeCell: resumes the saved game if there is one, otherwise deals a new one.
 class FreeCellScreen extends StatefulWidget {
@@ -41,10 +46,29 @@ class _Sel {
   const _Sel(this.pile, this.index, this.count);
 }
 
+/// One card's resting place in the layout.
+class _Placed {
+  final PlayingCard card;
+  final Pile pile;
+  final int index; // column / cell / foundation index
+  final int slot; // position within a column (0 elsewhere)
+  final double left;
+  final double top;
+  final double z;
+  const _Placed(this.card, this.pile, this.index, this.slot, this.left,
+      this.top, this.z);
+}
+
 class _FreeCellScreenState extends State<FreeCellScreen> {
   late FreeCellGame _game;
   late final GameClock _clock;
   _Sel? _sel;
+  bool _autoCollect = false;
+
+  /// Cards that just moved: drawn on top of the others while they glide.
+  Set<int> _flying = {};
+  Timer? _flyTimer;
+  Map<int, int> _lastSpots = {};
 
   GameRef get _ref => GameRef.freecell(_game.deal);
 
@@ -61,6 +85,9 @@ class _FreeCellScreenState extends State<FreeCellScreen> {
     } else {
       _game = FreeCellGame.deal(widget.initialDeal ?? _randomDeal());
     }
+    _autoCollect = widget.persist &&
+        Storage.getString(kFreeCellAutoCollectKey) == 'true';
+    _lastSpots = _spots();
     _clock = GameClock(seconds: secs, onTick: () {
       if (mounted) setState(() {});
     });
@@ -70,6 +97,7 @@ class _FreeCellScreenState extends State<FreeCellScreen> {
   @override
   void dispose() {
     _save();
+    _flyTimer?.cancel();
     _clock.dispose();
     super.dispose();
   }
@@ -98,13 +126,46 @@ class _FreeCellScreenState extends State<FreeCellScreen> {
     }
   }
 
+  /// code -> encoded spot, to work out which cards moved.
+  Map<int, int> _spots() {
+    final m = <int, int>{};
+    for (var c = 0; c < FreeCellGame.numColumns; c++) {
+      for (var i = 0; i < _game.columns[c].length; i++) {
+        m[_game.columns[c][i].code] = 1000 + c * 100 + i;
+      }
+    }
+    for (var k = 0; k < FreeCellGame.numCells; k++) {
+      final card = _game.cells[k];
+      if (card != null) m[card.code] = 5000 + k;
+    }
+    for (var s = 0; s < 4; s++) {
+      for (var r = 0; r < _game.foundations[s]; r++) {
+        m[PlayingCard(r, Suit.values[s]).code] = 6000 + s;
+      }
+    }
+    return m;
+  }
+
   void _afterMove() {
+    final now = _spots();
+    _flying = {
+      for (final e in now.entries)
+        if (_lastSpots[e.key] != e.value) e.key
+    };
+    _lastSpots = now;
+    _flyTimer?.cancel();
+    _flyTimer = Timer(kCardMoveDuration, () {
+      if (mounted) setState(() => _flying = {});
+    });
     _sel = null;
     _save();
     setState(() {});
     if (_game.won) {
       _clock.stop();
-      WidgetsBinding.instance.addPostFrameCallback((_) => _showWin());
+      // Let the last card land before the dialog covers the board.
+      Future.delayed(kCardMoveDuration + const Duration(milliseconds: 150), () {
+        if (mounted) _showWin();
+      });
     }
   }
 
@@ -112,6 +173,8 @@ class _FreeCellScreenState extends State<FreeCellScreen> {
     setState(() {
       _game = FreeCellGame.deal(deal);
       _sel = null;
+      _flying = {};
+      _lastSpots = _spots();
       _clock
         ..reset()
         ..start();
@@ -152,78 +215,94 @@ class _FreeCellScreenState extends State<FreeCellScreen> {
     if (n != null && n >= 1 && n <= 1000000) _newDeal(n);
   }
 
-  // ---- tap handling -------------------------------------------------------
-
-  void _tryMove(Pile to, int toIndex) {
-    final s = _sel!;
-    if (_game.play(s.pile, s.index, s.count, to, toIndex)) {
-      _afterMove();
+  void _toggleAutoCollect() {
+    setState(() => _autoCollect = !_autoCollect);
+    if (widget.persist) {
+      Storage.setString(kFreeCellAutoCollectKey, _autoCollect ? 'true' : 'false');
     }
   }
 
-  /// Tap: with nothing picked up, send the card (or stack) where it belongs —
-  /// foundation, a matching column, a free cell. Otherwise it's a destination
-  /// for the picked-up cards, or (if that fails) becomes the new pick-up.
+  // ---- tap handling -------------------------------------------------------
+  //
+  // Tap a card to pick it up, then tap where it should go (legal spots glow
+  // green). Tapping the picked-up card again sends it to the best spot.
+
+  bool _play(_Sel s, Pile to, int toIndex) {
+    if (_game.play(s.pile, s.index, s.count, to, toIndex, sweep: _autoCollect)) {
+      _afterMove();
+      return true;
+    }
+    return false;
+  }
+
+  void _autoSend(_Sel s) {
+    final d = _game.bestDestination(s.pile, s.index, s.count);
+    if (d != null) _play(s, d.pile, d.index);
+  }
+
   void _tapColumnCard(int c, int i) {
     final s = _sel;
     final count = _game.columns[c].length - i;
     if (s != null) {
       if (s.pile == Pile.column && s.index == c && s.count == count) {
-        setState(() => _sel = null);
+        _autoSend(s);
         return;
       }
-      final before = _game.moves;
-      _tryMove(Pile.column, c);
-      if (_game.moves != before) return;
-    } else if (_game.isSequence(c, i)) {
-      final d = _game.bestDestination(Pile.column, c, count);
-      if (d != null && _game.play(Pile.column, c, count, d.pile, d.index)) {
-        _afterMove();
-        return;
-      }
+      if (_play(s, Pile.column, c)) return;
     }
-    _pickUpColumn(c, i);
-  }
-
-  /// Long-press: pick the card (or stack) up without auto-sending it, so you
-  /// can choose the destination yourself (e.g. an empty column).
-  void _pickUpColumn(int c, int i) {
     setState(() {
-      _sel = _game.isSequence(c, i)
-          ? _Sel(Pile.column, c, _game.columns[c].length - i)
-          : null;
+      _sel = _game.isSequence(c, i) ? _Sel(Pile.column, c, count) : null;
     });
   }
 
   void _tapEmptyColumn(int c) {
-    if (_sel != null) _tryMove(Pile.column, c);
+    final s = _sel;
+    if (s != null) _play(s, Pile.column, c);
   }
 
   void _tapCell(int k) {
     final s = _sel;
     final card = _game.cells[k];
     if (s != null && s.pile == Pile.cell && s.index == k) {
-      setState(() => _sel = null);
+      _autoSend(s);
     } else if (s != null && card == null) {
-      _tryMove(Pile.cell, k);
+      _play(s, Pile.cell, k);
     } else if (card != null) {
-      if (s == null) {
-        final d = _game.bestDestination(Pile.cell, k, 1);
-        if (d != null && _game.play(Pile.cell, k, 1, d.pile, d.index)) {
-          _afterMove();
-          return;
-        }
-      }
-      _pickUpCell(k);
+      setState(() => _sel = _Sel(Pile.cell, k, 1));
     }
   }
 
-  void _pickUpCell(int k) {
-    if (_game.cells[k] != null) setState(() => _sel = _Sel(Pile.cell, k, 1));
+  void _tapFoundation() {
+    final s = _sel;
+    if (s != null) _play(s, Pile.foundation, 0);
   }
 
-  void _tapFoundation() {
-    if (_sel != null) _tryMove(Pile.foundation, 0);
+  // ---- layout -------------------------------------------------------------
+
+  List<_Placed> _layout(double cw, double ch, double gap, double overlap) {
+    double x(int i) => i * (cw + gap);
+    final tableauTop = ch + 14;
+    final out = <_Placed>[];
+    for (var c = 0; c < FreeCellGame.numColumns; c++) {
+      for (var i = 0; i < _game.columns[c].length; i++) {
+        out.add(_Placed(_game.columns[c][i], Pile.column, c, i, x(c),
+            tableauTop + i * overlap, 100.0 + i));
+      }
+    }
+    for (var k = 0; k < FreeCellGame.numCells; k++) {
+      final card = _game.cells[k];
+      if (card != null) {
+        out.add(_Placed(card, Pile.cell, k, 0, x(k), 0, 50));
+      }
+    }
+    for (var s = 0; s < 4; s++) {
+      for (var r = 0; r < _game.foundations[s]; r++) {
+        out.add(_Placed(
+            PlayingCard(r, Suit.values[s]), Pile.foundation, s, 0, x(4 + s), 0,
+            r.toDouble()));
+      }
+    }
+    return out;
   }
 
   // ---- build --------------------------------------------------------------
@@ -262,6 +341,8 @@ class _FreeCellScreenState extends State<FreeCellScreen> {
                   _chooseDeal();
                 case 'restart':
                   _newDeal(_game.deal);
+                case 'autocollect':
+                  _toggleAutoCollect();
                 case 'board':
                   Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) => LeaderboardScreen(gameId: _ref.id)));
@@ -270,12 +351,20 @@ class _FreeCellScreenState extends State<FreeCellScreen> {
                       gameId: _ref.id, label: _ref.label);
               }
             },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'new', child: Text('New random deal')),
-              PopupMenuItem(value: 'choose', child: Text('Play deal number…')),
-              PopupMenuItem(value: 'restart', child: Text('Restart this deal')),
-              PopupMenuItem(value: 'board', child: Text('Leaderboard')),
-              PopupMenuItem(value: 'send', child: Text('Challenge a friend')),
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: 'new', child: Text('New random deal')),
+              const PopupMenuItem(
+                  value: 'choose', child: Text('Play deal number…')),
+              const PopupMenuItem(
+                  value: 'restart', child: Text('Restart this deal')),
+              PopupMenuItem(
+                value: 'autocollect',
+                child: Text(
+                    'Auto-collect safe cards: ${_autoCollect ? 'on' : 'off'}'),
+              ),
+              const PopupMenuItem(value: 'board', child: Text('Leaderboard')),
+              const PopupMenuItem(
+                  value: 'send', child: Text('Challenge a friend')),
             ],
           ),
         ],
@@ -287,54 +376,60 @@ class _FreeCellScreenState extends State<FreeCellScreen> {
           final cw = min(86.0, (box.maxWidth - 2 * pad - 7 * gap) / 8);
           final ch = cw * kCardAspect;
           final overlap = ch * 0.3;
+          final boardW = 8 * cw + 7 * gap;
+          final longest = _game.columns.fold<int>(7, (m, c) => max(m, c.length));
+          final boardH = ch + 14 + ch + (longest - 1) * overlap + 8;
+
+          final placed = _layout(cw, ch, gap, overlap)
+            ..sort((a, b) {
+              final za = a.z + (_flying.contains(a.card.code) ? 1000 : 0);
+              final zb = b.z + (_flying.contains(b.card.code) ? 1000 : 0);
+              return za.compareTo(zb);
+            });
+
           return SingleChildScrollView(
             padding: const EdgeInsets.all(pad),
             child: Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: 8 * cw + 7 * gap),
+              child: SizedBox(
+                width: boardW,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(children: [
-                      for (var k = 0; k < FreeCellGame.numCells; k++) ...[
-                        if (k > 0) const SizedBox(width: gap),
-                        _cell(k, cw),
-                      ],
-                      for (var s = 0; s < 4; s++) ...[
-                        const SizedBox(width: gap),
-                        _foundation(s, cw),
-                      ],
-                    ]),
-                    const SizedBox(height: 14),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        for (var c = 0; c < FreeCellGame.numColumns; c++) ...[
-                          if (c > 0) const SizedBox(width: gap),
-                          _column(c, cw, ch, overlap),
+                    SizedBox(
+                      width: boardW,
+                      height: boardH,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          // Tapping bare table puts the card back down.
+                          Positioned.fill(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => setState(() => _sel = null),
+                            ),
+                          ),
+                          ..._slots(cw, ch, gap),
+                          for (final p in placed) _cardAt(p, cw),
                         ],
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    const SizedBox(height: 4),
-                    Center(
-                      child: Text(
-                        'Tap a card to send it · long-press to pick it up',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).colorScheme.outline,
-                        ),
                       ),
                     ),
-                    Center(
-                      child: Text(
-                        _game.won
-                            ? 'Solved in ${GameClock.format(_clock.seconds)}'
-                                ' · ${_game.moves} moves'
-                            : _game.stuck
-                                ? 'No moves left — undo or restart'
-                                : 'Moves: ${_game.moves}'
-                                    '  ·  ${GameClock.format(_clock.seconds)}',
+                    const SizedBox(height: 8),
+                    Text(
+                      _game.won
+                          ? 'Solved in ${GameClock.format(_clock.seconds)}'
+                              ' · ${_game.moves} moves'
+                          : _game.stuck
+                              ? 'No moves left — undo or restart'
+                              : 'Moves: ${_game.moves}'
+                                  '  ·  ${GameClock.format(_clock.seconds)}',
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Tap a card, then tap where it goes · '
+                      'tap it again to send it automatically',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.outline,
                       ),
                     ),
                   ],
@@ -347,68 +442,107 @@ class _FreeCellScreenState extends State<FreeCellScreen> {
     );
   }
 
-  Widget _cell(int k, double cw) {
-    final card = _game.cells[k];
-    final selected = _sel?.pile == Pile.cell && _sel?.index == k;
-    return GestureDetector(
-      key: Key('fc-cell-$k'),
-      behavior: HitTestBehavior.opaque,
-      onTap: () => _tapCell(k),
-      onLongPress: () => _pickUpCell(k),
-      child: card == null
-          ? EmptySlot(width: cw)
-          : PlayingCardView(card: card, width: cw, selected: selected),
-    );
-  }
-
-  Widget _foundation(int s, double cw) {
-    final n = _game.foundations[s];
-    final suit = Suit.values[s];
-    return GestureDetector(
-      key: Key('fc-found-$s'),
-      behavior: HitTestBehavior.opaque,
-      onTap: _tapFoundation,
-      child: n == 0
-          ? EmptySlot(width: cw, hint: suit.symbol)
-          : PlayingCardView(card: PlayingCard(n - 1, suit), width: cw),
-    );
-  }
-
-  Widget _column(int c, double cw, double ch, double overlap) {
-    final col = _game.columns[c];
-    if (col.isEmpty) {
-      return GestureDetector(
-        key: Key('fc-col-$c'),
-        behavior: HitTestBehavior.opaque,
-        onTap: () => _tapEmptyColumn(c),
-        child: EmptySlot(width: cw),
-      );
-    }
+  bool _legal(Pile to, int toIndex) {
     final s = _sel;
-    final selStart = (s != null && s.pile == Pile.column && s.index == c)
-        ? col.length - s.count
-        : col.length;
-    return SizedBox(
-      width: cw,
-      height: ch + (col.length - 1) * overlap,
-      child: Stack(
-        children: [
-          for (var i = 0; i < col.length; i++)
-            Positioned(
-              top: i * overlap,
-              child: GestureDetector(
-                key: Key('fc-card-$c-$i'),
-                onTap: () => _tapColumnCard(c, i),
-                onLongPress: () => _pickUpColumn(c, i),
-                child: PlayingCardView(
-                  card: col[i],
-                  width: cw,
-                  selected: i >= selStart,
-                ),
-              ),
+    return s != null && _game.canMove(s.pile, s.index, s.count, to, toIndex);
+  }
+
+  /// The empty outlines (free cells, foundations, empty columns) that take taps.
+  List<Widget> _slots(double cw, double ch, double gap) {
+    double x(int i) => i * (cw + gap);
+    return [
+      for (var k = 0; k < FreeCellGame.numCells; k++)
+        Positioned(
+          left: x(k),
+          top: 0,
+          child: GestureDetector(
+            key: Key('fc-cell-$k'),
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _tapCell(k),
+            child: EmptySlot(
+              width: cw,
+              highlight: _game.cells[k] == null && _legal(Pile.cell, k),
             ),
-        ],
-      ),
+          ),
+        ),
+      for (var s = 0; s < 4; s++)
+        Positioned(
+          left: x(4 + s),
+          top: 0,
+          child: GestureDetector(
+            key: Key('fc-found-$s'),
+            behavior: HitTestBehavior.opaque,
+            onTap: _tapFoundation,
+            child: EmptySlot(
+              width: cw,
+              hint: Suit.values[s].symbol,
+              highlight: _legal(Pile.foundation, 0) &&
+                  _sel != null &&
+                  _selectedSuit() == s,
+            ),
+          ),
+        ),
+      for (var c = 0; c < FreeCellGame.numColumns; c++)
+        if (_game.columns[c].isEmpty)
+          Positioned(
+            left: x(c),
+            top: ch + 14,
+            child: GestureDetector(
+              key: Key('fc-col-$c'),
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _tapEmptyColumn(c),
+              child: EmptySlot(width: cw, highlight: _legal(Pile.column, c)),
+            ),
+          ),
+    ];
+  }
+
+  int? _selectedSuit() {
+    final s = _sel;
+    if (s == null) return null;
+    if (s.pile == Pile.column) return _game.columns[s.index].last.suit.index;
+    if (s.pile == Pile.cell) return _game.cells[s.index]?.suit.index;
+    return null;
+  }
+
+  /// A card that glides (AnimatedPositioned) whenever its spot changes.
+  Widget _cardAt(_Placed p, double cw) {
+    final sel = _sel;
+    var selected = false;
+    var highlight = false;
+    if (p.pile == Pile.column) {
+      final col = _game.columns[p.index];
+      if (sel != null && sel.pile == Pile.column && sel.index == p.index) {
+        selected = p.slot >= col.length - sel.count;
+      }
+      highlight = p.slot == col.length - 1 && _legal(Pile.column, p.index);
+    } else if (p.pile == Pile.cell) {
+      selected = sel != null && sel.pile == Pile.cell && sel.index == p.index;
+    }
+
+    Widget card = PlayingCardView(
+      card: p.card,
+      width: cw,
+      selected: selected,
+      highlight: highlight,
+    );
+    if (p.pile == Pile.column) {
+      card = GestureDetector(
+        key: Key('fc-card-${p.index}-${p.slot}'),
+        onTap: () => _tapColumnCard(p.index, p.slot),
+        child: card,
+      );
+    } else {
+      // Cells and foundations take their taps on the slot underneath.
+      card = IgnorePointer(child: card);
+    }
+    return AnimatedPositioned(
+      key: ValueKey('${_game.deal}-${p.card.code}'),
+      duration: kCardMoveDuration,
+      curve: Curves.easeInOutCubic,
+      left: p.left,
+      top: p.top,
+      child: card,
     );
   }
 }

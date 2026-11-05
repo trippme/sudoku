@@ -9,11 +9,15 @@ class PlayingCardView extends StatelessWidget {
   final PlayingCard card;
   final double width;
   final bool selected;
+
+  /// Marks this card as a legal place to drop the picked-up cards.
+  final bool highlight;
   const PlayingCardView({
     super.key,
     required this.card,
     required this.width,
     this.selected = false,
+    this.highlight = false,
   });
 
   @override
@@ -27,8 +31,12 @@ class PlayingCardView extends StatelessWidget {
         color: selected ? Colors.amber.shade100 : Colors.white,
         borderRadius: BorderRadius.circular(width * 0.1),
         border: Border.all(
-          color: selected ? Colors.amber.shade800 : Colors.black45,
-          width: selected ? 2.5 : 1,
+          color: selected
+              ? Colors.amber.shade800
+              : highlight
+                  ? Colors.green.shade600
+                  : Colors.black45,
+          width: selected || highlight ? 2.5 : 1,
         ),
       ),
       child: Align(
@@ -76,7 +84,13 @@ class CardBackView extends StatelessWidget {
 class EmptySlot extends StatelessWidget {
   final double width;
   final String? hint;
-  const EmptySlot({super.key, required this.width, this.hint});
+  final bool highlight;
+  const EmptySlot({
+    super.key,
+    required this.width,
+    this.hint,
+    this.highlight = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -87,7 +101,9 @@ class EmptySlot extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(width * 0.1),
-        border: Border.all(color: c, width: 1.5),
+        border: Border.all(
+            color: highlight ? Colors.green.shade600 : c,
+            width: highlight ? 3 : 1.5),
       ),
       child: hint == null
           ? null

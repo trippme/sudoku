@@ -116,13 +116,14 @@ class FreeCellGame {
     return true;
   }
 
-  /// A full player move: [move] followed by sweeping any now-safe cards up to
-  /// the foundations, all undone together by a single [undo].
-  bool play(Pile from, int index, int count, Pile to, [int toIndex = 0]) {
+  /// A full player move: [move], then (if [sweep]) moving any now-safe cards up
+  /// to the foundations, all undone together by a single [undo].
+  bool play(Pile from, int index, int count, Pile to, int toIndex,
+      {bool sweep = true}) {
     if (!canMove(from, index, count, to, toIndex)) return false;
     _history.add(_snapshot());
     _apply(from, index, count, to, toIndex);
-    _sweep();
+    if (sweep) _sweep();
     return true;
   }
 

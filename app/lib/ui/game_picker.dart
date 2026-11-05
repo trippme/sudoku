@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:sudoku_app/games/game_definition.dart';
 import 'package:sudoku_app/games/registry.dart';
+import 'package:sudoku_app/ui/about.dart';
 
 /// Top-level screen: pick which game to play.
 class GamePicker extends StatelessWidget {
   final List<GameDefinition> games;
-  const GamePicker({super.key, List<GameDefinition>? games})
+  /// Test hook: supplies the version info without a platform channel.
+  final Future<PackageInfo>? packageInfo;
+  const GamePicker({super.key, List<GameDefinition>? games, this.packageInfo})
       : games = games ?? const [];
 
   @override
@@ -31,6 +35,8 @@ class GamePicker extends StatelessWidget {
                 ),
                 const SizedBox(height: 28),
                 for (final g in list) _GameCard(game: g),
+                const SizedBox(height: 8),
+                Center(child: VersionAboutButton(packageInfo: packageInfo)),
               ],
             ),
           ),
